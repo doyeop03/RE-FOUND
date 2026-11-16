@@ -1,0 +1,80 @@
+import type { Shop } from "@/types";
+
+/** 가상의 빈티지 숍 데이터 — 실제 매장·주소와 무관하다 */
+export const SHOPS: Shop[] = [
+  {
+    id: "second-room",
+    name: "세컨드룸",
+    area: "성수",
+    address: "서울 성동구 가상로 12길 8, 2층 (데모 주소)",
+    distanceKm: 0.4,
+    hours: "12:00 – 20:00",
+    closed: "월요일 휴무",
+    description:
+      "2000년대 일본 캐주얼을 중심으로 큐레이션하는 숍. 플리스와 아웃도어 섹션이 따로 마련되어 있습니다.",
+    tags: ["플리스", "아웃도어", "2000s"],
+    map: { x: 68, y: 44 },
+    foundProductIds: ["fleece-98-zip", "fleece-00-halfzip", "m65-04-field"],
+    partner: true,
+  },
+  {
+    id: "hanger-club",
+    name: "행거클럽",
+    area: "홍대",
+    address: "서울 마포구 예시로 45 (데모 주소)",
+    distanceKm: 1.2,
+    hours: "13:00 – 21:00",
+    closed: "연중무휴",
+    description:
+      "그래픽 티셔츠와 데님이 강한 숍. 매주 금요일에 새 물건이 들어옵니다.",
+    tags: ["그래픽 티셔츠", "데님"],
+    map: { x: 24, y: 38 },
+    foundProductIds: ["ut-19-artist", "ut-03-graphic", "denim-01-trucker"],
+    partner: true,
+  },
+  {
+    id: "archive-mangwon",
+    name: "아카이브 망원",
+    area: "망원",
+    address: "서울 마포구 샘플길 3 (데모 주소)",
+    distanceKm: 1.8,
+    hours: "12:00 – 19:00",
+    closed: "화요일 휴무",
+    description:
+      "디자이너 협업 컬렉션과 테일러드 아우터를 전문으로 다루는 작은 숍입니다.",
+    tags: ["협업 컬렉션", "코트"],
+    map: { x: 14, y: 58 },
+    foundProductIds: ["plusj-09-coat", "designer-17-stripe-knit", "uu-16-blouson"],
+    partner: true,
+  },
+  {
+    id: "loop-euljiro",
+    name: "루프 을지로",
+    area: "을지로",
+    address: "서울 중구 프로토로 77, 3층 (데모 주소)",
+    distanceKm: 2.6,
+    hours: "14:00 – 22:00",
+    closed: "일요일 휴무",
+    description:
+      "기본 아이템 위주의 합리적인 가격대. 셔츠와 니트 선택지가 넓습니다.",
+    tags: ["셔츠", "니트", "베이직"],
+    map: { x: 48, y: 30 },
+    foundProductIds: ["oxford-07-shirt", "lambswool-03-crew", "selvedge-10-jeans"],
+    partner: false,
+  },
+  {
+    id: "field-itaewon",
+    name: "필드 이태원",
+    area: "이태원",
+    address: "서울 용산구 목업로 21 (데모 주소)",
+    distanceKm: 3.1,
+    hours: "12:00 – 20:00",
+    closed: "월요일 휴무",
+    description:
+      "밀리터리와 워크웨어 전문. 필드 재킷과 치노 팬츠를 찾는다면 들러 볼 만합니다.",
+    tags: ["밀리터리", "워크웨어"],
+    map: { x: 50, y: 68 },
+    foundProductIds: ["m65-04-field", "denim-01-trucker"],
+    partner: false,
+  },
+];
