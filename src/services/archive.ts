@@ -2,8 +2,9 @@ import { CARE_GUIDES } from "@/data/care";
 import { EDITORIALS } from "@/data/editorials";
 import { PRODUCTS } from "@/data/products";
 import { SHOPS } from "@/data/shops";
+import { VERIFICATIONS } from "@/data/verifications";
 import { computeRarity } from "@/lib/rarity";
-import type { CareGuide, Editorial, Product, Shop } from "@/types";
+import type { CareGuide, Editorial, Product, Shop, Verification } from "@/types";
 
 /**
  * 아카이브 조회 서비스.
@@ -16,6 +17,7 @@ import type { CareGuide, Editorial, Product, Shop } from "@/types";
 const ALL: Product[] = PRODUCTS.map((p) => ({
   ...p,
   rarity: computeRarity(p.scarcity, p.season),
+  verification: VERIFICATIONS.find((v) => v.productId === p.id) ?? null,
 }));
 
 export async function getProducts(): Promise<Product[]> {
@@ -67,4 +69,8 @@ export async function getShops(): Promise<Shop[]> {
 
 export async function getShop(id: string): Promise<Shop | null> {
   return SHOPS.find((s) => s.id === id) ?? null;
+}
+
+export async function getVerification(productId: string): Promise<Verification | null> {
+  return VERIFICATIONS.find((v) => v.productId === productId) ?? null;
 }

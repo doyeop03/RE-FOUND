@@ -6,7 +6,6 @@ import { useQueryString } from "@/lib/use-query";
 import {
   Droplets,
   Heart,
-  Lock,
   Plus,
   ScanLine,
   Scissors,
@@ -201,38 +200,6 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
           </div>
         ))}
       </dl>
-
-      {/* 도감 인덱스 */}
-      <section className="mt-8">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-[16px] font-extrabold">COLLECTION INDEX</h2>
-          <p className="text-[12px] text-sub">수집하지 않은 아카이브는 실루엣으로 표시돼요</p>
-        </div>
-        <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-12">
-          {products.map((p, i) => {
-            const has = collectedIds.has(p.id);
-            return (
-              <li key={p.id}>
-                <Link
-                  href={`/archive/${p.id}`}
-                  aria-label={`${p.name}${has ? " (수집 완료)" : " (미수집)"}`}
-                  className={cx("relative block aspect-[4/5] border", has ? "border-ink bg-white" : "border-line bg-paper")}
-                >
-                  <GarmentImage
-                    spec={has ? p.garment : { ...p.garment, color: "#DCDCDC", accent: "#DCDCDC", graphic: undefined }}
-                    className={cx("h-full w-full p-1.5", !has && "opacity-70")}
-                    label={p.nameKo}
-                  />
-                  <span className={cx("absolute left-1 top-1 text-[9px] font-bold", has ? "text-brand" : "text-faint")}>
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  {!has && <Lock size={10} className="absolute bottom-1 right-1 text-faint" />}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
 
       {/* 탭 */}
       <div role="tablist" aria-label="옷장 분류" className="no-scrollbar sticky top-14 z-20 -mx-5 mt-8 flex overflow-x-auto border-b border-line bg-white px-5 md:top-16 md:mx-0 md:px-0">

@@ -1,27 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowRight,
   Camera,
   Check,
   ImagePlus,
   Info,
   LoaderCircle,
-  Plus,
-  RotateCcw,
   Sparkles,
   X,
 } from "lucide-react";
 import { SaveToClosetModal } from "@/components/closet/SaveToClosetModal";
 import { GarmentImage } from "@/components/garment/GarmentImage";
-import { Button, DemoTag, RarityBadge, buttonLinkClass } from "@/components/ui/primitives";
-import { cx, priceRange, seasonLabel } from "@/lib/format";
-import { RARITY_LABEL } from "@/lib/rarity";
+import { Button, DemoTag } from "@/components/ui/primitives";
+import { cx } from "@/lib/format";
 import { SCAN_STEPS, analyzeGarment } from "@/services/scan";
 import { logActivity, useAppState } from "@/store/app-store";
 import { toast } from "@/store/toast-store";
+import { ScanResultFeature } from "./ScanResultFeature";
 import type { GarmentView, Product, ScanResult, ScanSlotKey } from "@/types";
 
 type Phase = "upload" | "analyzing" | "result";
@@ -316,114 +312,24 @@ export function ScanFlow({ products }: { products: Product[] }) {
         </section>
       )}
 
-      {/* STEP 3 */}
+      {/* STEP 3 — 매거진 형식 결과 */}
       {phase === "result" && result && (
-        <section className="animate-page pt-8">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center bg-brand text-white">
-              <Check size={14} strokeWidth={3} />
-            </span>
-            <p className="text-[14px] font-bold">아카이브에서 일치하는 제품을 찾았어요</p>
-          </div>
-
-          <div className="mt-5 grid gap-6 md:grid-cols-2 md:gap-12">
-            <div>
-              <div className="relative aspect-[4/5] overflow-hidden bg-paper">
-                {preview(frontPhoto, "front", "h-full w-full")}
-                <span className="absolute left-3 top-3">
-                  <RarityBadge grade={matched.rarity.grade} size="md" />
-                </span>
-                {frontPhoto?.url && (
-                  <span className="absolute bottom-3 right-3 h-[92px] w-[74px] border-2 border-white bg-paper">
-                    <GarmentImage spec={matched.garment} className="h-full w-full p-1" label="매칭된 아카이브" />
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 text-[11px] text-faint">
-                {frontPhoto?.url ? "내가 올린 사진 · 오른쪽 아래는 매칭된 아카이브" : "샘플 이미지"}
-              </p>
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="eyebrow text-sub">Archive Card</p>
-                <DemoTag>DEMO 결과 · 공식 인증 아님</DemoTag>
-              </div>
-              <h1 className="mt-3 text-[30px] font-extrabold leading-[1.1] tracking-[-0.035em] md:text-[38px]">{matched.name}</h1>
-              <p className="mt-1 text-[15px] text-sub">{matched.nameKo}</p>
-
-              <dl className="mt-5 divide-y divide-line border-y border-ink text-[14px]">
-                {[
-                  ["출시 연도 · 시즌", seasonLabel(matched.season)],
-                  ["협업 컬렉션", matched.collab ? matched.collab.note : "해당 없음"],
-                  ["소재 · 색상", `${matched.material} · ${matched.color.name}`],
-                  ["아카이브 일치도", `${Math.round(result.confidence * 100)}% (데모 값)`],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex items-baseline justify-between gap-4 py-3.5">
-                    <dt className="shrink-0 text-sub">{k}</dt>
-                    <dd className="text-right font-bold">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <div className="mt-4 grid grid-cols-2 gap-px border border-line bg-line">
-                <div className="bg-white p-4">
-                  <p className="text-[12px] text-sub">희귀도 등급</p>
-                  <p className="mt-1 flex items-baseline gap-1.5">
-                    <span className="display text-[40px] text-brand">{matched.rarity.grade}</span>
-                    <span className="text-[13px] font-bold">{RARITY_LABEL[matched.rarity.grade]}</span>
-                  </p>
-                  <p className="mt-1 text-[11px] text-faint">희소성 지표 {matched.rarity.score} / 100</p>
-                </div>
-                <div className="bg-white p-4">
-                  <p className="text-[12px] text-sub">이 옷의 외관 상태</p>
-                  <p className="mt-1 text-[24px] font-extrabold leading-[40px]">{result.condition.label}</p>
-                  <p className="mt-1 text-[11px] text-faint">등급과 별도로 평가</p>
-                </div>
-              </div>
-              <ul className="mt-2 flex flex-wrap gap-1.5">
-                {result.condition.notes.map((n) => (
-                  <li key={n} className="bg-paper px-2.5 py-1.5 text-[12px] font-medium">{n}</li>
-                ))}
-              </ul>
-
-              <div className="mt-4 border-y border-line py-4">
-                <p className="text-[12px] text-sub">예상 중고 매물 가격대 (호가 기준)</p>
-                <p className="mt-0.5 text-[24px] font-extrabold tracking-[-0.03em]">{priceRange(matched.market)}</p>
-                {matched.market && (
-                  <p className="text-[12px] text-faint">
-                    매물 {matched.market.listings}건 · {matched.market.asOf} 기준 · 실거래가 아님
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-5 flex flex-col gap-2">
-                <Link href={`/archive/${matched.id}`} className={buttonLinkClass.dark}>
-                  아카이브 자세히 보기 <ArrowRight size={18} />
-                </Link>
-                {saved ? (
-                  <Link href="/my" className={buttonLinkClass.outline}>
-                    <Check size={18} className="text-brand" /> 옷장에 저장됨 · 보러 가기
-                  </Link>
-                ) : (
-                  <Button onClick={() => setSaveOpen(true)}>
-                    <Plus size={18} /> 나의 옷장에 저장
-                  </Button>
-                )}
-                <button type="button" onClick={restart} className="mx-auto flex h-11 items-center gap-1.5 text-[13px] font-semibold text-sub hover:text-ink">
-                  <RotateCcw size={14} /> 다른 옷 스캔하기
-                </button>
-              </div>
-            </div>
-          </div>
-
+        <>
+          <ScanResultFeature
+            product={matched}
+            result={result}
+            photoUrl={frontPhoto?.url ?? null}
+            saved={saved}
+            onSave={() => setSaveOpen(true)}
+            onRestart={restart}
+          />
           <SaveToClosetModal
             open={saveOpen}
             onClose={() => setSaveOpen(false)}
             product={matched}
             conditionLabel={result.condition.label}
           />
-        </section>
+        </>
       )}
     </div>
   );

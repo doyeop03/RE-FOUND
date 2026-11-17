@@ -12,7 +12,7 @@ export function BottomNav() {
       aria-label="하단 탭"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <ul className="mx-auto grid h-16 max-w-[520px] grid-cols-5">
+      <ul className="mx-auto grid h-16 max-w-[520px] grid-cols-4">
         {NAV_ITEMS.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;

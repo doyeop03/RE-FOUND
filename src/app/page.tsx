@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, MapPin, ScanLine } from "lucide-react";
-import { EditorialCard } from "@/components/editorial/EditorialCard";
 import { GarmentImage } from "@/components/garment/GarmentImage";
 import { ProductCard } from "@/components/product/ProductCard";
 import {
@@ -10,7 +9,7 @@ import {
 } from "@/components/ui/primitives";
 import { CATEGORY_LABEL, priceRange, seasonLabel } from "@/lib/format";
 import { RARITY_ORDER } from "@/lib/rarity";
-import { getEditorials, getProducts } from "@/services/archive";
+import { getProducts } from "@/services/archive";
 import type { Category } from "@/types";
 
 const CATEGORIES: Category[] = ["outer", "fleece", "knit", "shirt", "tee", "pants"];
@@ -23,7 +22,7 @@ const STEPS = [
 ];
 
 export default async function HomePage() {
-  const [products, editorials] = await Promise.all([getProducts(), getEditorials()]);
+  const products = await getProducts();
 
   const hero = products[0];
   const weekly = products.filter((p) => p.foundThisWeek);
@@ -190,31 +189,6 @@ export default async function HomePage() {
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
-      </section>
-
-      {/* EDITORIAL */}
-      <section className="container-page pt-16 md:pt-24">
-        <SectionHeader eyebrow="Magazine" title="빈티지 유니클로 이야기" href="/magazine" linkLabel="매거진" />
-        <div className="grid gap-5 md:grid-cols-2">
-          {editorials.slice(0, 2).map((e) => {
-            const cover = products.find((p) => p.id === e.coverProductId) ?? products[0];
-            return <EditorialCard key={e.slug} editorial={e} cover={cover} />;
-          })}
-        </div>
-        <ul className="mt-2 divide-y divide-line border-b border-line">
-          {editorials.slice(2).map((e) => (
-            <li key={e.slug}>
-              <Link href={`/magazine/${e.slug}`} className="group flex items-center justify-between gap-4 py-5">
-                <div className="min-w-0">
-                  <p className="eyebrow !text-[10px] text-sub">{e.issue}</p>
-                  <p className="display mt-1.5 text-[22px] group-hover:text-brand md:text-[30px]">{e.title}</p>
-                  <p className="mt-1 text-[13px] text-sub">{e.subtitle}</p>
-                </div>
-                <ArrowUpRight size={20} className="shrink-0" />
-              </Link>
-            </li>
-          ))}
-        </ul>
       </section>
 
       {/* NEARBY */}

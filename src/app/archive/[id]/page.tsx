@@ -18,10 +18,15 @@ import { Gallery } from "@/components/archive/Gallery";
 import { PriceChart } from "@/components/charts/PriceChart";
 import { EVAL_LABEL, EVAL_ORDER, RadarChart } from "@/components/charts/RadarChart";
 import { GarmentImage } from "@/components/garment/GarmentImage";
+import { CertificateLauncher } from "@/components/certificate/CertificateLauncher";
 import { ProductCard } from "@/components/product/ProductCard";
+import { VerificationBadge } from "@/components/verification/VerificationBadge";
+import { VerificationCard } from "@/components/verification/VerificationCard";
+import { VerificationProcess } from "@/components/verification/VerificationProcess";
 import { DemoTag, SectionHeader } from "@/components/ui/primitives";
 import { CATEGORY_LABEL, priceRange, seasonLabel, shortYear, won } from "@/lib/format";
 import { RARITY_LABEL } from "@/lib/rarity";
+import { toCertificate } from "@/lib/verification";
 import {
   getCareGuide,
   getProduct,
@@ -59,6 +64,7 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
 
   const [care, related] = await Promise.all([getCareGuide(product), getRelatedProducts(product)]);
   const { rarity, market, story } = product;
+  const certificate = toCertificate(product);
   const avg = (EVAL_ORDER.reduce((s, k) => s + product.evaluation[k].score, 0) / EVAL_ORDER.length).toFixed(1);
 
   const specs = [
@@ -107,6 +113,11 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
                 <span className="inline-flex h-6 items-center border border-brand px-2 text-[11px] font-bold text-brand">
                   {product.collab.note}
                 </span>
+              )}
+              {product.verification && (
+                <a href="#verification" aria-label="인증 정보로 이동">
+                  <VerificationBadge status={product.verification.status} branded className="!h-6" />
+                </a>
               )}
               <DemoTag className="!h-6">DEMO DATA · 공식 인증 아님</DemoTag>
             </div>
@@ -166,10 +177,48 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
           </div>
         </div>
 
-        {/* B. 평가 */}
-        <section className="mt-16 md:mt-24">
+        {/* A-2. 아카이브 인증 */}
+        <section id="verification" className="mt-16 scroll-mt-24 md:mt-24">
           <SectionTitle
             index="01"
+            en="Verification"
+            title="아카이브 인증"
+            note="RE:FOUND 검수 담당자가 택 · 품번 · 소재 · 부자재 · 상태를 확인하고 인증번호를 발급합니다. 인증 여부는 희귀도 등급과 별개입니다."
+          />
+          {product.verification ? (
+            <div className="grid gap-10 md:grid-cols-[minmax(0,400px)_1fr] md:gap-x-14">
+              {/* 인증서 진입점 — 모바일에서는 맨 위, 데스크톱에서는 오른쪽 상단 */}
+              {certificate && (
+                <div className="md:col-start-2 md:row-start-1 md:self-start">
+                  <CertificateLauncher certificate={certificate} />
+                </div>
+              )}
+              <div className="mx-auto w-full max-w-[420px] md:sticky md:top-24 md:col-start-1 md:row-span-2 md:row-start-1 md:mx-0 md:self-start">
+                <VerificationCard
+                  product={product}
+                  verification={product.verification}
+                  action={{ href: "#evaluation", label: "희귀도 평가 근거 보기" }}
+                />
+              </div>
+              <div className="md:col-start-2">
+                <VerificationProcess verification={product.verification} />
+              </div>
+            </div>
+          ) : (
+            <div className="border border-line bg-paper px-5 py-12 text-center">
+              <p className="display text-[30px] text-faint">NOT VERIFIED</p>
+              <p className="mt-3 text-[15px] font-bold">아직 인증 이력이 없습니다</p>
+              <Link href="/scan" className="mt-4 inline-flex h-11 items-center gap-1 text-[13px] font-bold text-brand">
+                스캔하고 검증 요청하기 <ChevronRight size={14} />
+              </Link>
+            </div>
+          )}
+        </section>
+
+        {/* B. 평가 */}
+        <section id="evaluation" className="mt-16 scroll-mt-24 md:mt-24">
+          <SectionTitle
+            index="02"
             en="Evaluation"
             title="희귀도 평가"
             note="종합 평가(레이더 차트)와 희귀도 등급은 따로 산정합니다. 희귀도 등급에는 의류 상태와 수요가 반영되지 않습니다."
@@ -260,7 +309,7 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
 
         {/* C. 시장 가치 */}
         <section id="market" className="mt-16 scroll-mt-24 md:mt-24">
-          <SectionTitle index="02" en="Market Value" title="시장 가치" />
+          <SectionTitle index="03" en="Market Value" title="시장 가치" />
           {market ? (
             <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr] lg:gap-14">
               <div>
@@ -314,7 +363,7 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
       <section className="mt-16 bg-ivory py-14 md:mt-24 md:py-24">
         <div className="container-page">
           <p className="eyebrow text-sub">
-            <span className="text-brand">03</span> — {story.kicker}
+            <span className="text-brand">04</span> — {story.kicker}
           </p>
           <h2 className="display mt-4 max-w-[9em] text-[46px] leading-[1.02] md:text-[96px]">{story.headline}</h2>
           <p className="mt-5 flex items-center gap-2 text-[12px] text-sub">
@@ -359,7 +408,7 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
       <div className="container-page">
         {/* E. 소재와 관리 */}
         <section className="mt-16 md:mt-24">
-          <SectionTitle index="04" en="Material & Care" title="소재와 관리 가이드" />
+          <SectionTitle index="05" en="Material & Care" title="소재와 관리 가이드" />
           <div className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
             {careBlocks.map((b) => (
               <div key={b.title} className="bg-white p-5">
@@ -381,7 +430,7 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
         {/* F. 수선·재판매 */}
         <section className="mt-16 md:mt-24">
           <SectionTitle
-            index="05"
+            index="06"
             en="Loop Services"
             title="수선 및 재판매"
             note="가치를 확인했다면, 이 옷의 다음 이야기를 선택해 보세요. 데모에서는 신청 접수 화면까지 체험할 수 있습니다."

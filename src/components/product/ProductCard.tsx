@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { GarmentImage } from "@/components/garment/GarmentImage";
 import { RarityBadge } from "@/components/ui/primitives";
+import { VerificationBadge } from "@/components/verification/VerificationBadge";
 import { cx, priceRange, seasonLabel } from "@/lib/format";
 import type { Product } from "@/types";
 import { LikeButton } from "./LikeButton";
@@ -32,6 +33,13 @@ export function ProductCard({ product, rank, className, invert }: Props) {
           )}
           <RarityBadge grade={product.rarity.grade} />
         </div>
+        {product.verification && (
+          <VerificationBadge
+            status={product.verification.status}
+            size="xs"
+            className="absolute bottom-2 left-2"
+          />
+        )}
         <LikeButton
           productId={product.id}
           className={cx("absolute right-0 top-0", invert && "[&_svg:not(.fill-brand)]:text-white")}

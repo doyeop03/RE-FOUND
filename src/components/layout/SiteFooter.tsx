@@ -13,7 +13,6 @@ export function SiteFooter() {
           <ul className="flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-medium">
             <li><Link href="/explore" className="hover:text-brand">발견하기</Link></li>
             <li><Link href="/scan" className="hover:text-brand">스캔하기</Link></li>
-            <li><Link href="/magazine" className="hover:text-brand">매거진</Link></li>
             <li><Link href="/nearby" className="hover:text-brand">빈티지 숍</Link></li>
             <li><Link href="/my" className="hover:text-brand">나의 옷장</Link></li>
           </ul>

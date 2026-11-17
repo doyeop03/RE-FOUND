@@ -120,6 +120,67 @@ export interface ProductBase {
 
 export interface Product extends ProductBase {
   rarity: RarityResult;
+  verification: Verification | null;
+}
+
+/* ───────── 아카이브 인증 (RE:FOUND 자체 검증) ───────── */
+
+/** verified: 검증 완료 · in_review: 검증 진행 중 · needs_review: 추가 확인 필요 */
+export type VerificationStatus = "verified" | "in_review" | "needs_review";
+
+export type VerificationCheckKey =
+  | "label"
+  | "season"
+  | "material"
+  | "hardware"
+  | "condition";
+
+/** pass: 통과 · pending: 검수 대기 · flag: 추가 확인 필요 */
+export type CheckResult = "pass" | "pending" | "flag";
+
+export interface VerificationCheck {
+  key: VerificationCheckKey;
+  label: string;
+  detail: string;
+  result: CheckResult;
+}
+
+export interface Verification {
+  productId: string;
+  status: VerificationStatus;
+  /** 검증 완료 시에만 발급된다 */
+  certNo: string | null;
+  /** 검증 접수 번호 — 상태와 관계없이 항상 존재 */
+  requestNo: string;
+  requestedAt: string;
+  /** 검증 완료일 (완료 전에는 null) */
+  verifiedAt: string | null;
+  /** 진행 중일 때 예상 완료일 */
+  expectedAt?: string;
+  checks: VerificationCheck[];
+  /** 추가 확인이 필요할 때 사용자에게 보여 줄 안내 */
+  note?: string;
+}
+
+/** 플립 인증서에 표시할 데이터 — 검증 완료 제품에서만 만들어진다 */
+export interface CertificateData {
+  productId: string;
+  certNo: string;
+  /** 인증번호 끝자리 일련번호 (앞면 표기용) */
+  serial: string;
+  productName: string;
+  productNameKo: string;
+  season: string;
+  seasonEstimated: boolean;
+  collection: string;
+  rarityGrade: RarityGrade;
+  rarityLabel: string;
+  verifiedAt: string;
+  items: { label: string; detail: string; passed: boolean }[];
+  garment: GarmentSpec;
+  detailHref: string;
+  /** 실제 인증 시스템 연동 전까지 항상 true */
+  isDemo: boolean;
 }
 
 export interface CareGuide {
