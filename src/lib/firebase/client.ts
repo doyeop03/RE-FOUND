@@ -61,6 +61,40 @@ export function subscribeDirectKey(onChange: () => void): () => void {
   };
 }
 
+/** 복사할 때 딸려 온 공백 · 줄바꿈 · 따옴표 · "KEY=" 접두어를 걷어 낸다 */
+export function cleanKey(raw: string): string {
+  return raw
+    .replace(/^\s*NEXT_PUBLIC_GEMINI_API_KEY\s*=/, "")
+    .replace(/\s+/g, "")
+    .replace(/^["'`]+|["'`]+$/g, "");
+}
+
+/** Gemini API 키 형식 (AIza… · AQ.… 등 — 영문 · 숫자 · . _ - 만) */
+export function looksLikeKey(key: string): boolean {
+  return /^[A-Za-z0-9._-]{20,}$/.test(key);
+}
+
+const HASH_PARAM = "gemini-key";
+
+/**
+ * 주소 끝 #gemini-key=… 로 들어오면 키를 이 기기에 저장하고 주소에서 지운다.
+ * (# 뒤는 서버로 전송되지 않는다. 휴대폰에서 링크 한 번으로 키를 넣기 위한 용도)
+ */
+export function consumeKeyFromHash(): boolean {
+  try {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const raw = params.get(HASH_PARAM);
+    if (raw === null) return false;
+    const key = cleanKey(raw);
+    params.delete(HASH_PARAM);
+    const rest = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + window.location.search + (rest ? `#${rest}` : ""));
+    return looksLikeKey(key) && saveDirectKey(key);
+  } catch {
+    return false;
+  }
+}
+
 /** 이 기기에 키를 저장한다. 빈 값이면 지운다. 저장 실패 시 false */
 export function saveDirectKey(key: string): boolean {
   try {

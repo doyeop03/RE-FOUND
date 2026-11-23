@@ -49,3 +49,15 @@ describe("Gemini 직접 호출 · 대체 모델", () => {
     await expect(reviewer.writeDescription({}, {})).rejects.toMatchObject({ kind: "not_configured" });
   });
 });
+
+describe("키 입력 정리 · 형식", () => {
+  it("AQ. 로 시작하는 점 포함 키와 복사 시 딸려 온 공백 · 따옴표 · 접두어를 처리한다", async () => {
+    const { cleanKey, looksLikeKey } = await import("@/lib/firebase/client");
+    const key = "AQ.Ab8RN6Kb_test-0123456789abcdef";
+    expect(looksLikeKey(cleanKey(key))).toBe(true);
+    expect(cleanKey(`  "${key}"\n`)).toBe(key);
+    expect(cleanKey(`NEXT_PUBLIC_GEMINI_API_KEY=${key}`)).toBe(key);
+    expect(looksLikeKey(cleanKey("AIzaSyA-0123456789abcdefghijklmnop"))).toBe(true);
+    expect(looksLikeKey("짧음")).toBe(false);
+  });
+});

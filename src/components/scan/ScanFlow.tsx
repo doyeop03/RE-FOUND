@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, ChevronRight, Database, LoaderCircle, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
 import { cx } from "@/lib/format";
-import { GEMINI_MODEL, firebaseStatus, getDirectKey, hasSavedKey, saveDirectKey, subscribeDirectKey, type FirebaseStatus } from "@/lib/firebase/client";
+import { GEMINI_MODEL, cleanKey, consumeKeyFromHash, firebaseStatus, getDirectKey, hasSavedKey, looksLikeKey, saveDirectKey, subscribeDirectKey, type FirebaseStatus } from "@/lib/firebase/client";
 import { supabaseConfigured } from "@/lib/supabase/client";
 import { buildScanRecord, fallbackDescription } from "@/lib/scan/build-record";
 import { ERROR_MESSAGE, ScanError, toScanError } from "@/lib/scan/errors";
@@ -62,9 +62,13 @@ export function ScanFlow() {
   const [keyInput, setKeyInput] = useState("");
   const [keyEditing, setKeyEditing] = useState(false);
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
+  // 링크(#gemini-key=…)로 들어오면 키를 저장한다 — 저장 이벤트로 위의 구독이 "준비됨"으로 갱신한다
+  useEffect(() => {
+    consumeKeyFromHash();
+  }, []);
   const submitKey = (value: string) => {
-    const v = value.trim();
-    if (v && !/^[A-Za-z0-9_-]{20,}$/.test(v)) {
+    const v = cleanKey(value);
+    if (v && !looksLikeKey(v)) {
       setKeyMessage("키 형식이 올바르지 않습니다. 복사한 키 전체를 붙여 넣어 주세요.");
       return;
     }
