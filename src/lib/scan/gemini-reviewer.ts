@@ -38,31 +38,52 @@ function toRestSchema(node: unknown): unknown {
   return out;
 }
 
-/** 로컬 전용 — Gemini API 키로 generativelanguage REST 를 직접 호출하고 응답 텍스트를 돌려준다 */
+/** 기본 모델이 혼잡(503) · 한도 초과(429) · 서버 오류(500)일 때 대신 쓰는 모델 (같은 키로 이미지 + 응답 스키마 동작 확인) */
+const FALLBACK_MODEL = "gemini-3.5-flash";
+/** 기본 모델이 혼잡하면 이 시각까지는 바로 대체 모델로 보낸다 — 사진마다 혼잡한 모델을 먼저 두드리지 않도록 */
+const PRIMARY_COOLDOWN_MS = 3 * 60_000;
+let primaryBusyUntil = 0;
+
+type GeminiBody = {
+  error?: { message?: string; status?: string };
+  promptFeedback?: { blockReason?: string };
+  candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+} | null;
+
+/** Gemini API 키로 generativelanguage REST 를 직접 호출하고 응답 텍스트를 돌려준다 */
 async function generateDirect(schema: ObjectSchema, parts: (string | Part)[], timeout: number, signal?: AbortSignal): Promise<string> {
   const restParts = parts.map((p) =>
     typeof p === "string" ? { text: p } : { inlineData: (p as { inlineData: { mimeType: string; data: string } }).inlineData },
   );
   const timeoutSignal = AbortSignal.timeout(timeout);
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": getDirectKey() },
-    signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: restParts }],
-      generationConfig: { responseMimeType: "application/json", responseSchema: toRestSchema(JSON.parse(JSON.stringify(schema))), temperature: 0.1 },
-    }),
+  const requestBody = JSON.stringify({
+    contents: [{ role: "user", parts: restParts }],
+    generationConfig: { responseMimeType: "application/json", responseSchema: toRestSchema(JSON.parse(JSON.stringify(schema))), temperature: 0.1 },
   });
-  const body = (await res.json().catch(() => null)) as {
-    error?: { message?: string; status?: string };
-    promptFeedback?: { blockReason?: string };
-    candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
-  } | null;
+  const post = (model: string) =>
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": getDirectKey() },
+      signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
+      body: requestBody,
+    });
+  const busy = (status: number) => status === 503 || status === 429 || status === 500;
+
+  const canFallback = GEMINI_MODEL !== FALLBACK_MODEL;
+  let model = canFallback && Date.now() < primaryBusyUntil ? FALLBACK_MODEL : GEMINI_MODEL;
+  let res = await post(model);
+  if (canFallback && model === GEMINI_MODEL && busy(res.status)) {
+    primaryBusyUntil = Date.now() + PRIMARY_COOLDOWN_MS;
+    model = FALLBACK_MODEL;
+    res = await post(model);
+  }
+
+  const body = (await res.json().catch(() => null)) as GeminiBody;
   if (!res.ok) {
     const msg = body?.error?.message ?? res.statusText;
     if (/API key not valid|API_KEY_INVALID/i.test(msg)) throw new ScanError("not_configured", "Gemini API 키가 올바르지 않습니다. 스캔 화면에서 키를 다시 입력해 주세요.", msg);
     if (res.status === 403) throw new ScanError("not_configured", "Gemini API 키에 이 모델을 쓸 권한이 없습니다.", msg);
-    if (res.status === 404) throw new ScanError("not_configured", `모델 ${GEMINI_MODEL} 을(를) 찾을 수 없습니다. NEXT_PUBLIC_GEMINI_MODEL 을 확인해 주세요.`, msg);
+    if (res.status === 404) throw new ScanError("not_configured", `모델 ${model} 을(를) 찾을 수 없습니다. NEXT_PUBLIC_GEMINI_MODEL 을 확인해 주세요.`, msg);
     throw Object.assign(new Error(`[${res.status}] ${msg}`), { customErrorData: { status: res.status } });
   }
   if (body?.promptFeedback?.blockReason) throw new ScanError("blocked", ERROR_MESSAGE.blocked, body.promptFeedback.blockReason);
