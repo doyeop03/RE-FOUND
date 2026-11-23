@@ -8,7 +8,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/primitives";
 import { CATEGORY_LABEL, cx } from "@/lib/format";
 import { RARITY_LABEL } from "@/lib/rarity";
+import { RecordCard } from "@/components/archive/record/RecordDetail";
 import type { Category, Product, RarityGrade } from "@/types";
+import type { ArchiveRecord } from "@/types/archive-record";
 
 type CategoryFilter = Category | "all";
 type Decade = "all" | "1990" | "2000" | "2010";
@@ -60,12 +62,12 @@ function Chip({
 }
 
 /** URL 쿼리가 바뀌면 key 로 다시 마운트해 초기 필터를 적용한다 */
-export function ExploreView({ products }: { products: Product[] }) {
+export function ExploreView({ products, records = [] }: { products: Product[]; records?: ArchiveRecord[] }) {
   const search = useQueryString();
-  return <ExploreInner key={search} search={search} products={products} />;
+  return <ExploreInner key={search} search={search} products={products} records={records} />;
 }
 
-function ExploreInner({ products, search }: { products: Product[]; search: string }) {
+function ExploreInner({ products, search, records }: { products: Product[]; search: string; records: ArchiveRecord[] }) {
   const params = new URLSearchParams(search);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -187,6 +189,21 @@ function ExploreInner({ products, search }: { products: Product[]; search: strin
       <p className="eyebrow text-brand">Explore</p>
       <h1 className="display mt-2 text-[40px] md:text-[64px]">ARCHIVE</h1>
       <p className="mt-2 text-[14px] text-sub">지금까지 발견된 빈티지 유니클로를 탐색해 보세요.</p>
+
+      {records.length > 0 && (
+        <section aria-labelledby="sourced-title" className="mt-6 border-t-2 border-ink pt-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="sourced-title" className="eyebrow text-brand">Sourced Archive · 출처 확인 자료</h2>
+            <span className="text-[11px] text-faint">원문 확인 {records.length}건</span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-5">
+            {records.map((r) => (
+              <RecordCard key={r.id} record={r} />
+            ))}
+          </div>
+          <p className="mt-4 text-[11px] leading-relaxed text-faint">아래 목록은 프로토타입 데모 데이터입니다. 출처 확인 자료와 섞지 않습니다.</p>
+        </section>
+      )}
 
       {/* 검색 */}
       <div className="relative mt-5">

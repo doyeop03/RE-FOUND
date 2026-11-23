@@ -1,0 +1,54 @@
+{
+  "registered_by": "RE:FOUND dev · archive_seed.json 원문 확인 (2026-11-20)",
+  "products": [
+    {
+      "brand": "UNIQLO",
+      "product_code": null,
+      "name": "UNIQLO U Fleece Cardigan",
+      "name_ko": "유니클로 유 플리스 카디건",
+      "collection": "Uniqlo U",
+      "release_year": 2017,
+      "release_season": "F/W",
+      "category": "플리스 카디건",
+      "color": null,
+      "material": null,
+      "fit": null,
+      "design_features": [],
+      "description": "UNIQLO U 2017 가을겨울 공식 컬렉션 페이지(UK)에 'Fleece cardigan £39.90'으로 게재된 상품입니다.",
+      "is_collaboration": null,
+      "collab_partner": null,
+      "limited_edition": null,
+      "discontinued": null,
+      "production_scale": null,
+      "production_note": null,
+      "primary_source_url": "https://www.uniqlo.com/UniqloU17fw/uk/sp/men/",
+      "verification_note": "품번 · 색상명은 공식 페이지에서 확인하지 못해 비워 둠. 이미지 사용 권한 미확인.",
+      "sources": [
+        {
+          "kind": "official_collection",
+          "publisher": "UNIQLO",
+          "title": "UNIQLO U Fall Winter 2017 — Menswear (UK)",
+          "url": "https://www.uniqlo.com/UniqloU17fw/uk/sp/men/",
+          "published_on": null,
+          "scope": "product",
+          "excerpt": "UNIQLO U Fall Winter 2017 · Fleece cardigan £39.90",
+          "verifies": ["페이지 제목 'UNIQLO U Fall Winter 2017'", "'Fleece cardigan £39.90' 게재"],
+          "checked_at": "2026-11-20"
+        },
+        {
+          "kind": "press",
+          "publisher": "GQ",
+          "title": "Uniqlo U Drops Tonight and It's Stuffed with More Lemaire Goodness",
+          "url": "https://www.gq.com/story/uniqlo-u-lemaire-2017",
+          "published_on": "2017-10-05",
+          "scope": "collection",
+          "excerpt": "Christophe Lemaire's latest collection for his line Uniqlo U drops tonight … Uniqlo U fleece cardigan, $40",
+          "verifies": ["Uniqlo U를 Christophe Lemaire의 라인으로 소개", "'Uniqlo U fleece cardigan, $40' 표기"],
+          "checked_at": "2026-11-20"
+        }
+      ],
+      "images": [],
+      "listings": []
+    }
+  ]
+}

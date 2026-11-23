@@ -88,6 +88,9 @@ export function toCertificate(product: Product): CertificateData | null {
   if (!v || v.status !== "verified" || !v.certNo || !v.verifiedAt) return null;
 
   return {
+    level: "verified",
+    numberLabel: "검증 번호",
+    dateLabel: "검증일",
     productId: product.id,
     certNo: v.certNo,
     serial: v.certNo.split("-").at(-1) ?? v.certNo,

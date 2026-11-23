@@ -18,9 +18,9 @@ export function SiteFooter() {
           </ul>
         </div>
         <p className="mt-8 border-t border-line pt-5 text-[12px] leading-relaxed text-faint">
-          본 화면은 캠페인 기획을 위한 프로토타입이며 유니클로 공식 서비스가 아닙니다. 제품 정보, 출시 시즌, 희귀도,
-          가격은 모두 시연용 가상 데이터이고, 제품 이미지는 일러스트 플레이스홀더입니다. 실제 정품 인증이나 AI 분석은
-          수행되지 않습니다.
+          본 화면은 캠페인 기획을 위한 프로토타입이며 유니클로 공식 서비스가 아닙니다. &lsquo;DEMO&rsquo; 표시 제품의 정보 · 희귀도 ·
+          가격은 시연용 가상 데이터입니다. &lsquo;Sourced Archive&rsquo;는 원문을 확인한 출처 자료이며, 스캔 결과는 실제 촬영 사진의
+          Gemini 분석입니다. AI 분석은 정품 인증이 아니며, RE:FOUND의 정품 검증은 별도 검수로만 이루어집니다.
         </p>
       </div>
     </footer>

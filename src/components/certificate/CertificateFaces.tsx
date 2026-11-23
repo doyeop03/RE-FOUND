@@ -16,6 +16,31 @@ import type { CertificateData } from "@/types";
 
 export const CERT_EM = "calc(100cqw / 34)";
 
+/** 단계별 문구 — 검증 완료가 아닌 카드는 '정품 인증 아님'을 앞 · 뒷면 모두에 적는다 */
+const LEVEL_TEXT: Record<CertificateData["level"], { ring: string; lines: [string, string]; sub: string; back: string; label: string }> = {
+  verified: {
+    ring: "ARCHIVE VERIFIED · OLD UNIQLO · RE:FOUND ·",
+    lines: ["ARCHIVE", "VERIFIED"],
+    sub: "OLD UNIQLO AUTHENTICATION",
+    back: "VERIFIED ARCHIVE",
+    label: "검증 완료",
+  },
+  archive_matched: {
+    ring: "ARCHIVE MATCHED · NOT AUTHENTICATED · RE:FOUND ·",
+    lines: ["ARCHIVE", "MATCHED"],
+    sub: "아카이브 정보 확인 · 정품 인증 아님",
+    back: "ARCHIVE MATCHED",
+    label: "아카이브 정보 확인",
+  },
+  ai_analyzed: {
+    ring: "AI ANALYZED · NOT AUTHENTICATED · RE:FOUND ·",
+    lines: ["AI", "ANALYZED"],
+    sub: "AI 분석 기록 · 정품 인증 아님",
+    back: "AI ANALYSIS RECORD",
+    label: "AI 분석 완료",
+  },
+};
+
 function Wordmark({ className, invert }: { className?: string; invert?: boolean }) {
   return (
     <span className={cx("font-extrabold tracking-[-0.04em]", invert ? "text-white" : "text-ink", className)}>
@@ -25,7 +50,7 @@ function Wordmark({ className, invert }: { className?: string; invert?: boolean 
 }
 
 /** 원형 인증 씰 — 가운데 두 개의 레드 점은 RE:FOUND 로고의 콜론(:)에서 가져왔다 */
-function Seal() {
+function Seal({ ring: ringText }: { ring: string }) {
   const id = useId().replace(/:/g, "");
   const ring = `seal-${id}`;
   return (
@@ -37,7 +62,7 @@ function Seal() {
       <circle cx="60" cy="60" r="38" fill="none" stroke="#fff" strokeOpacity="0.2" strokeWidth="0.6" />
       <text fill="#fff" fillOpacity="0.72" fontSize="6.6" fontWeight="600" letterSpacing="1.6">
         <textPath href={`#${ring}`} textLength="292" lengthAdjust="spacing">
-          ARCHIVE VERIFIED · OLD UNIQLO · RE:FOUND ·
+          {ringText}
         </textPath>
       </text>
       {/* 눈금 */}
@@ -89,15 +114,15 @@ export function CertificateFront({ certificate: c }: { certificate: CertificateD
       {/* 중앙 */}
       <div className="relative flex flex-1 flex-col items-center justify-center text-center">
         <div className="size-[11.5em]">
-          <Seal />
+          <Seal ring={LEVEL_TEXT[c.level].ring} />
         </div>
         <p className="mt-[1.1em] text-[4.3em] font-extrabold leading-[0.92] tracking-[-0.045em]">
-          ARCHIVE
+          {LEVEL_TEXT[c.level].lines[0]}
           <br />
-          VERIFIED
+          {LEVEL_TEXT[c.level].lines[1]}
         </p>
         <span className="my-[1.5em] block h-[0.22em] w-[2.6em] bg-brand" />
-        <p className="text-[1em] font-semibold tracking-[0.3em] text-white/60">OLD UNIQLO AUTHENTICATION</p>
+        <p className="text-[1em] font-semibold tracking-[0.3em] text-white/60">{LEVEL_TEXT[c.level].sub}</p>
       </div>
 
       {/* 하단 */}
@@ -106,7 +131,11 @@ export function CertificateFront({ certificate: c }: { certificate: CertificateD
         <div>
           <p className="text-[0.95em] font-bold tracking-[0.3em] text-white/85">UNIQLO VINTAGE LOOP</p>
           <p className="mt-[0.5em] text-[0.85em] text-white/40">
-            {c.isDemo ? "검증 예시 · 공식 정품 보증 아님" : "RE:FOUND Archive Certificate"}
+            {c.isDemo
+              ? "검증 예시 · 공식 정품 보증 아님"
+              : c.level === "verified"
+                ? "RE:FOUND Archive Certificate"
+                : `${LEVEL_TEXT[c.level].label} · 정품 인증 아님`}
           </p>
         </div>
         <p className="text-right text-[0.85em] leading-tight text-white/45">
@@ -145,17 +174,29 @@ export function CertificateBack({
       <div className="flex items-center justify-between">
         <Wordmark className="text-[1.7em]" />
         <span className="flex items-center gap-[0.5em] text-[0.95em] font-bold tracking-[0.2em]">
-          <span className="flex size-[1.5em] items-center justify-center rounded-full bg-brand text-white">
-            <Check className="size-[1em]" strokeWidth={3.5} />
-          </span>
-          VERIFIED ARCHIVE
+          {c.level === "verified" && (
+            <span className="flex size-[1.5em] items-center justify-center rounded-full bg-brand text-white">
+              <Check className="size-[1em]" strokeWidth={3.5} />
+            </span>
+          )}
+          {LEVEL_TEXT[c.level].back}
         </span>
       </div>
       <div className="mt-[1.2em] h-px bg-ink" />
 
       {/* 제품 이미지 */}
       <div className="relative mt-[1.2em] min-h-0 flex-1 bg-paper">
-        <GarmentImage spec={c.garment} label={c.productNameKo} className="absolute inset-0 h-full w-full p-[3%]" />
+        {c.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- 사용자 촬영 사진 또는 권한 확인된 사진
+          <img src={c.photoUrl} alt={c.productNameKo} className="absolute inset-0 h-full w-full object-cover" />
+        ) : c.garment ? (
+          <GarmentImage spec={c.garment} label={c.productNameKo} className="absolute inset-0 h-full w-full p-[3%]" />
+        ) : (
+          <span className="absolute inset-0 flex flex-col items-center justify-center text-center text-faint">
+            <span className="text-[1.6em] font-extrabold tracking-[-0.03em]">NO PHOTO</span>
+            <span className="mt-[0.3em] text-[0.95em]">공개 가능한 사진 없음</span>
+          </span>
+        )}
         {c.isDemo && (
           <span className="absolute left-[0.8em] top-[0.8em] border border-ink bg-white px-[0.5em] py-[0.15em] text-[0.85em] font-bold tracking-[0.12em]">
             DEMO · 검증 예시
@@ -163,7 +204,7 @@ export function CertificateBack({
         )}
         <span className="absolute bottom-0 right-0 flex flex-col items-center bg-ink px-[0.8em] py-[0.4em] text-white">
           <span className="text-[0.75em] font-semibold tracking-[0.16em]">RARITY</span>
-          <span className="text-[2.4em] font-extrabold leading-none tracking-[-0.04em]">{c.rarityGrade}</span>
+          <span className="text-[2.4em] font-extrabold leading-none tracking-[-0.04em]">{c.rarityGrade ?? "—"}</span>
         </span>
       </div>
 
@@ -175,14 +216,14 @@ export function CertificateBack({
       <dl className="mt-[1em] grid grid-cols-2 border-l border-t border-line">
         <Info label="출시 시즌" value={c.season} sub={c.seasonEstimated ? "추정" : undefined} />
         <Info label="컬렉션" value={c.collection} />
-        <Info label="희귀도 등급" value={c.rarityGrade} sub={c.rarityLabel} accent={c.rarityGrade === "S" || c.rarityGrade === "A"} />
-        <Info label="검증일" value={c.verifiedAt} />
+        <Info label="희귀도 등급" value={c.rarityGrade ?? "—"} sub={c.rarityLabel} accent={c.rarityGrade === "S" || c.rarityGrade === "A"} />
+        <Info label={c.dateLabel} value={c.verifiedAt} />
       </dl>
 
       {/* 검증 번호 */}
       <div className="flex items-center justify-between gap-[1em] border-b border-dashed border-faint py-[0.8em]">
         <div className="min-w-0">
-          <p className="text-[0.95em] text-sub">검증 번호</p>
+          <p className="text-[0.95em] text-sub">{c.numberLabel}</p>
           <p className="whitespace-nowrap text-[1.5em] font-extrabold tracking-[0.06em]">{c.certNo}</p>
         </div>
         <span className="flex h-[2.6em] shrink-0 items-stretch gap-[0.1em]" aria-hidden>
@@ -218,8 +259,14 @@ export function CertificateBack({
               <br />
               공식 정품 보증이 아닙니다
             </>
-          ) : (
+          ) : c.level === "verified" ? (
             "RE:FOUND Archive Certificate"
+          ) : (
+            <>
+              {LEVEL_TEXT[c.level].label}
+              <br />
+              정품 인증이 아닙니다
+            </>
           )}
         </p>
         <Link

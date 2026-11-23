@@ -162,24 +162,39 @@ export interface Verification {
   note?: string;
 }
 
-/** 플립 인증서에 표시할 데이터 — 검증 완료 제품에서만 만들어진다 */
+/**
+ * 플립 인증서에 표시할 데이터.
+ * level 이 "verified" 일 때만 '검증 완료' 인증서이며, 나머지 단계는 정품 인증이 아님을 카드에 함께 표기한다.
+ *  - ai_analyzed: AI 촬영 분석 완료 기록
+ *  - archive_matched: 출처가 있는 상품 정보와 대조됨
+ *  - verified: RE:FOUND 별도 검수 통과
+ */
 export interface CertificateData {
+  level: "ai_analyzed" | "archive_matched" | "verified";
   productId: string;
   certNo: string;
   /** 인증번호 끝자리 일련번호 (앞면 표기용) */
   serial: string;
+  /** "검증 번호" | "기록 번호" */
+  numberLabel: string;
   productName: string;
   productNameKo: string;
   season: string;
   seasonEstimated: boolean;
   collection: string;
-  rarityGrade: RarityGrade;
+  /** 판정 자료가 부족하면 null */
+  rarityGrade: RarityGrade | null;
   rarityLabel: string;
   verifiedAt: string;
+  /** "검증일" | "확인일" | "분석일" */
+  dateLabel: string;
   items: { label: string; detail: string; passed: boolean }[];
-  garment: GarmentSpec;
+  /** 데모 제품의 일러스트 스펙 */
+  garment?: GarmentSpec;
+  /** 실제 레코드의 대표 사진 (권한 확인된 사진만) */
+  photoUrl?: string | null;
   detailHref: string;
-  /** 실제 인증 시스템 연동 전까지 항상 true */
+  /** 데모 데이터 여부 */
   isDemo: boolean;
 }
 
@@ -259,17 +274,4 @@ export interface Activity {
 
 export type ServiceType = "cleaning" | "repair" | "resale";
 
-export type ScanSlotKey = "front" | "back" | "label" | "damage";
-
-export interface ScanStep {
-  key: string;
-  label: string;
-  doneLabel: string;
-}
-
-export interface ScanResult {
-  productId: string;
-  confidence: number;
-  condition: { label: string; notes: string[] };
-  isDemo: true;
-}
+/* 스캔 관련 타입은 src/lib/scan/* (실제 촬영 · AI 분석) 와 src/types/archive-record.ts 에 있다 */

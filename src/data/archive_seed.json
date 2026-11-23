@@ -1,0 +1,65 @@
+{
+  "dataset_title": "RE:FOUND Archive / verified-source visual references",
+  "note": "실제 원본 사진 파일은 포함하지 않으며, 출처가 확인된 외부 이미지 URL을 기록한 샘플 데이터입니다. 외부 이미지 사용 권한 확인 후 공개 배포하세요.",
+  "items": [
+    {
+      "id": "OLD-UNIQLO-YELLOW-FLEECE-COCO",
+      "display_name": "OLD UNIQLO Yellow Zip-up Fleece Jacket",
+      "brand": "UNIQLO",
+      "archive_category": "Old UNIQLO Fleece",
+      "era_claim": "1990s (빈티지 판매처 표기)",
+      "release_year_verified": null,
+      "release_season_verified": null,
+      "product_code_verified": null,
+      "size_on_label": "XL",
+      "color": "Yellow / Black trim",
+      "rarity_grade": null,
+      "current_market_price": null,
+      "authentication_status": "not_verified",
+      "editorial_title": "THE FLEECE YEARS",
+      "editorial_subtitle": "일상복으로 자리 잡은 유니클로 플리스의 시대",
+      "historical_context": "유니클로는 1994년 플리스를 출시했고, 1998년 플리스 캠페인이 큰 주목을 받았다. 이는 해당 개별 옷의 정확한 출시연도나 모델을 증명하지 않는다.",
+      "images": [
+        {"role":"front","url":"https://baseec-img-mng.akamaized.net/images/item/origin/64cf8c289738878212116d1ade4c1dfb.png","source":"COCO / BASE","same_physical_item":true},
+        {"role":"back","url":"https://baseec-img-mng.akamaized.net/images/item/origin/ccf643c33345ff9b3fe69fe47ce8badc.png","source":"COCO / BASE","same_physical_item":true},
+        {"role":"angled_front","url":"https://baseec-img-mng.akamaized.net/images/item/origin/595373425ea6161ac2123652dc4e6c40.png","source":"COCO / BASE","same_physical_item":true},
+        {"role":"sleeve_detail","url":"https://baseec-img-mng.akamaized.net/images/item/origin/46b25b7648adcf5ea8ed96b777599992.jpg","source":"COCO / BASE","same_physical_item":true},
+        {"role":"shoulder_detail","url":"https://baseec-img-mng.akamaized.net/images/item/origin/a2be315ad87cb12d6aabc9b3abb40275.png","source":"COCO / BASE","same_physical_item":true},
+        {"role":"collar_label","url":"https://baseec-img-mng.akamaized.net/images/item/origin/57572c4f78ead5a284f7adfff7727ed9.png","source":"COCO / BASE","same_physical_item":true},
+        {"role":"brand_history_magazine","url":"https://fashionsnap-assets.com/article/images/2019/08/uniqlo-lifewear-magazine-4.jpg","source":"FASHIONSNAP / UNIQLO LifeWear magazine retrospective","same_physical_item":false,"note":"2019년 플리스 역사 특집. 이 상품의 1990년대 실물 화보가 아님"}
+      ],
+      "sources": [
+        {"type":"used_item_listing","url":"https://eccoco.base.shop/items/79418011"},
+        {"type":"brand_fleece_history","url":"https://www.fastretailing.com/eng/group/news/1410151100.html"},
+        {"type":"brand_timeline","url":"https://www.fastretailing.com/eng/about/history/2003.html"},
+        {"type":"magazine_retrospective","url":"https://www.fashionsnap.com/article/2019-08-22/uniqlo-lifewear-magazine/"}
+      ]
+    },
+    {
+      "id": "UNIQLO-U-FLEECE-CARDIGAN-2017FW",
+      "display_name": "UNIQLO U Fleece Cardigan",
+      "brand": "UNIQLO",
+      "collection": "Uniqlo U",
+      "release_season_verified": "2017 F/W",
+      "release_year_verified": 2017,
+      "product_code_verified": null,
+      "color": "Camel / Brown",
+      "historic_uk_price": "GBP 39.90 (2017 UNIQLO UK catalogue)",
+      "rarity_grade": null,
+      "current_market_price": null,
+      "authentication_status": "collection_verified_product_identity_not_individually_authenticated",
+      "editorial_title": "A STUDY IN EVERYDAY FLEECE",
+      "editorial_subtitle": "2017 F/W, Uniqlo U의 기능적인 미니멀리즘",
+      "editorial_description": "2017년 가을겨울 Uniqlo U 컬렉션에 등장한 플리스 카디건. 제품 단독 사진과 같은 컬렉션의 실제 유니클로 착용 화보를 연결한 아카이브 구성.",
+      "images": [
+        {"role":"product_front_editorial","url":"https://media.gq.com/photos/59d3f5555738bb6db7434118/master/w_1600%2Cc_limit/8-uniqlo-u-fall-2017-menswear.jpg","source":"GQ 2017","same_collection":true},
+        {"role":"original_lookbook","url":"https://www.uniqlo.com/UniqloU17fw/common/images/sp/wear/mens/slide_06-2.jpg","source":"UNIQLO official Uniqlo U 2017 F/W","same_collection":true}
+      ],
+      "missing_views": ["back", "sleeve_closeup", "care_label"],
+      "sources": [
+        {"type":"official_2017_collection","url":"https://www.uniqlo.com/UniqloU17fw/uk/sp/men/"},
+        {"type":"editorial_product_photo","url":"https://www.gq.com/story/uniqlo-u-lemaire-2017"}
+      ]
+    }
+  ]
+}

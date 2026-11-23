@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { PrimaryActions, ServiceSection } from "@/components/archive/DetailActions";
 import { Gallery } from "@/components/archive/Gallery";
+import { EditorialUnavailable } from "@/components/archive/editorial/ArchiveEditorial";
+import { RecordDetail } from "@/components/archive/record/RecordDetail";
+import { SectionTitle } from "@/components/archive/SectionTitle";
 import { PriceChart } from "@/components/charts/PriceChart";
 import { EVAL_LABEL, EVAL_ORDER, RadarChart } from "@/components/charts/RadarChart";
 import { GarmentImage } from "@/components/garment/GarmentImage";
@@ -33,32 +36,28 @@ import {
   getProducts,
   getRelatedProducts,
 } from "@/services/archive";
+import { SEED_RECORDS, getSeedRecord } from "@/lib/archive/seed-records";
 
 export async function generateStaticParams() {
   const products = await getProducts();
-  return products.map((p) => ({ id: p.id }));
+  return [...products.map((p) => ({ id: p.id })), ...SEED_RECORDS.map((r) => ({ id: r.id }))];
 }
 
 export async function generateMetadata({ params }: PageProps<"/archive/[id]">): Promise<Metadata> {
   const { id } = await params;
   const product = await getProduct(id);
-  return { title: product ? product.name : "아카이브" };
-}
-
-function SectionTitle({ index, en, title, note }: { index: string; en: string; title: string; note?: string }) {
-  return (
-    <div className="mb-6 border-t-2 border-ink pt-4 md:mb-8">
-      <p className="eyebrow text-sub">
-        <span className="text-brand">{index}</span> — {en}
-      </p>
-      <h2 className="mt-2 text-[24px] font-extrabold tracking-[-0.03em] md:text-[32px]">{title}</h2>
-      {note && <p className="mt-2 max-w-[44em] text-[13px] leading-relaxed text-sub">{note}</p>}
-    </div>
-  );
+  const record = getSeedRecord(id);
+  return { title: product?.name ?? record?.displayName ?? "아카이브" };
 }
 
 export default async function ArchiveDetailPage({ params }: PageProps<"/archive/[id]">) {
   const { id } = await params;
+  // 출처 확인 자료(seed)는 Mock 제품과 다른 데이터 구조 · 다른 화면으로 그린다
+  const record = getSeedRecord(id);
+  if (record) {
+    return <RecordDetail record={record} related={SEED_RECORDS.filter((r) => r.id !== record.id)} />;
+  }
+
   const product = await getProduct(id);
   if (!product) notFound();
 
@@ -406,9 +405,12 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
       </section>
 
       <div className="container-page">
+        {/* 데모 제품에는 확인된 출처가 없어 에디토리얼을 구성하지 않는다 */}
+        <EditorialUnavailable index="05" />
+
         {/* E. 소재와 관리 */}
         <section className="mt-16 md:mt-24">
-          <SectionTitle index="05" en="Material & Care" title="소재와 관리 가이드" />
+          <SectionTitle index="06" en="Material & Care" title="소재와 관리 가이드" />
           <div className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
             {careBlocks.map((b) => (
               <div key={b.title} className="bg-white p-5">
@@ -430,7 +432,7 @@ export default async function ArchiveDetailPage({ params }: PageProps<"/archive/
         {/* F. 수선·재판매 */}
         <section className="mt-16 md:mt-24">
           <SectionTitle
-            index="06"
+            index="07"
             en="Loop Services"
             title="수선 및 재판매"
             note="가치를 확인했다면, 이 옷의 다음 이야기를 선택해 보세요. 데모에서는 신청 접수 화면까지 체험할 수 있습니다."

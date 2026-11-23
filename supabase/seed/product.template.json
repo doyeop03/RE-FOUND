@@ -1,0 +1,70 @@
+{
+  "registered_by": "이름 또는 팀 · 확인 날짜",
+  "products": [
+    {
+      "brand": "UNIQLO",
+      "product_code": "케어라벨에 인쇄된 품번 그대로 (모르면 null)",
+      "name": "공식 상품명",
+      "name_ko": null,
+      "collection": null,
+      "release_year": null,
+      "release_season": null,
+      "category": null,
+      "color": null,
+      "material": null,
+      "fit": null,
+      "design_features": [],
+      "description": "출처 원문에 있는 내용만 (모르면 null)",
+      "is_collaboration": null,
+      "collab_partner": null,
+      "limited_edition": null,
+      "discontinued": null,
+      "production_scale": null,
+      "production_note": null,
+      "primary_source_url": "https://공식-출처-URL",
+      "verification_note": null,
+      "sources": [
+        {
+          "kind": "official_collection",
+          "publisher": "UNIQLO",
+          "title": null,
+          "url": "https://공식-출처-URL",
+          "published_on": null,
+          "scope": "product",
+          "excerpt": "원문에서 그대로 옮긴 문장",
+          "verifies": ["이 출처로 확인한 내용"],
+          "checked_at": "2026-11-20"
+        }
+      ],
+      "images": [
+        {
+          "role": "front",
+          "local_file": "images/my-photo.jpg",
+          "external_url": null,
+          "source_name": "RE:FOUND 직접 촬영",
+          "source_url": "https://출처-또는-촬영-기록-URL",
+          "rights": "owned",
+          "rights_holder": "RE:FOUND",
+          "rights_note": "2026-11-20 RE:FOUND 직접 촬영",
+          "license_url": null,
+          "checked_at": "2026-11-20"
+        }
+      ],
+      "listings": [
+        {
+          "source_name": "중고 플랫폼 이름",
+          "source_url": "https://플랫폼-URL",
+          "listing_url": "https://개별-매물-URL",
+          "price": 45000,
+          "currency": "KRW",
+          "price_type": "asking",
+          "condition_note": null,
+          "size": "L",
+          "listed_at": null,
+          "sold_at": null,
+          "collected_at": "2026-11-20"
+        }
+      ]
+    }
+  ]
+}

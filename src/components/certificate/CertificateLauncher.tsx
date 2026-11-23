@@ -33,10 +33,18 @@ export function CertificateLauncher({ certificate }: { certificate: CertificateD
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className="eyebrow !text-[10px] text-brand">Archive Certificate</p>
-          <p className="mt-1 text-[15px] font-extrabold tracking-[-0.02em]">검증 완료 인증서가 발급되었습니다</p>
+          <p className="eyebrow !text-[10px] text-brand">
+            {certificate.level === "verified" ? "Archive Certificate" : "Archive Record Card"}
+          </p>
+          <p className="mt-1 text-[15px] font-extrabold tracking-[-0.02em]">
+            {certificate.level === "verified"
+              ? "검증 완료 인증서가 발급되었습니다"
+              : certificate.level === "archive_matched"
+                ? "아카이브 정보 확인 카드 · 정품 인증 아님"
+                : "AI 분석 기록 카드 · 정품 인증 아님"}
+          </p>
           <p className="mt-0.5 text-[12px] text-sub">
-            검증 번호 <b className="font-bold text-ink">{certificate.certNo}</b>
+            {certificate.numberLabel} <b className="font-bold text-ink">{certificate.certNo}</b>
             {certificate.isDemo && <span className="text-faint"> · 검증 예시</span>}
           </p>
           <button

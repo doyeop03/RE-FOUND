@@ -1,335 +1,649 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  Camera,
-  Check,
-  ImagePlus,
-  Info,
-  LoaderCircle,
-  Sparkles,
-  X,
-} from "lucide-react";
-import { SaveToClosetModal } from "@/components/closet/SaveToClosetModal";
-import { GarmentImage } from "@/components/garment/GarmentImage";
-import { Button, DemoTag } from "@/components/ui/primitives";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Check, ChevronRight, Database, LoaderCircle, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/primitives";
 import { cx } from "@/lib/format";
-import { SCAN_STEPS, analyzeGarment } from "@/services/scan";
-import { logActivity, useAppState } from "@/store/app-store";
-import { toast } from "@/store/toast-store";
-import { ScanResultFeature } from "./ScanResultFeature";
-import type { GarmentView, Product, ScanResult, ScanSlotKey } from "@/types";
+import { GEMINI_MODEL, firebaseStatus, getDirectKey, hasSavedKey, saveDirectKey, subscribeDirectKey, type FirebaseStatus } from "@/lib/firebase/client";
+import { supabaseConfigured } from "@/lib/supabase/client";
+import { buildScanRecord, fallbackDescription } from "@/lib/scan/build-record";
+import { ERROR_MESSAGE, ScanError, toScanError } from "@/lib/scan/errors";
+import {
+  MAX_ATTEMPTS,
+  acceptUnreviewed,
+  acceptedImages,
+  applyShot,
+  createFlow,
+  currentStepIndex,
+  decideFromReview,
+  forceAccept,
+  isCaptureDone,
+  skipStep,
+  type FlowState,
+} from "@/lib/scan/flow";
+import { GeminiImageReviewer } from "@/lib/scan/gemini-reviewer";
+import { applySimilarity, buildCandidates, summarizeMatch, type Candidate } from "@/lib/scan/match";
+import { normalizeCode } from "@/lib/scan/sanitize";
+import type { GarmentAnalysis } from "@/lib/scan/schemas";
+import { newId, type ScanImageMeta, type ScanSession } from "@/lib/scan/session";
+import { getBlob, listSessions, saveBlob, saveSession } from "@/lib/scan/session-store";
+import { fetchImageBlob, findProductsByCode, getMarketListings, productImageUrl, searchProductsByKeywords, type DbProduct } from "@/services/product-db";
+import { uploadSession } from "@/services/scan-upload";
+import type { DescriptionLine, StoryBlock } from "@/types/archive-record";
+import { CameraCapture, type Captured } from "./CameraCapture";
+import { CandidatePicker } from "./CandidatePicker";
+import { StepRail } from "./StepRail";
 
-type Phase = "upload" | "analyzing" | "result";
+/**
+ * 실제 스캔 흐름.
+ * 카메라(CameraCapture) ↔ 단계 상태 머신(lib/scan/flow) ↔ AI(ShotReviewer) ↔ 상품 DB(services/product-db) 를 잇는다.
+ * Mock Data 는 참조하지 않는다. 결과는 /archive/scan/?session=… 의 상세 페이지로 넘어간다.
+ */
 
-interface Photo {
-  file: File | "sample";
-  url: string | null;
-}
+type Phase = "intro" | "capture" | "analyzing" | "select" | "finalizing";
 
-const SLOTS: { key: ScanSlotKey; label: string; hint: string; required: boolean; view: GarmentView }[] = [
-  { key: "front", label: "의류 앞면", hint: "옷 전체가 보이게", required: true, view: "front" },
-  { key: "label", label: "케어라벨", hint: "글자가 선명하게", required: true, view: "label" },
-  { key: "back", label: "의류 뒷면", hint: "선택", required: false, view: "back" },
-  { key: "damage", label: "손상 부위", hint: "선택 · 보풀, 얼룩 등", required: false, view: "detail" },
-];
+const PROGRESS = ["사진 종합 분석", "케어라벨 품번으로 상품 DB 조회", "기준 사진과 비교", "상세 페이지 구성"];
 
-const PHASES: { key: Phase; label: string }[] = [
-  { key: "upload", label: "사진 등록" },
-  { key: "analyzing", label: "분석" },
-  { key: "result", label: "결과" },
-];
-
-export function ScanFlow({ products }: { products: Product[] }) {
-  const sample = products[0];
-  const [phase, setPhase] = useState<Phase>("upload");
-  const [photos, setPhotos] = useState<Partial<Record<ScanSlotKey, Photo>>>({});
-  const [step, setStep] = useState(0);
-  const [result, setResult] = useState<ScanResult | null>(null);
-  const [saveOpen, setSaveOpen] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const urlsRef = useRef<string[]>([]);
-  const { closet } = useAppState();
-
-  useEffect(() => {
-    const urls = urlsRef.current;
-    return () => {
-      abortRef.current?.abort();
-      urls.forEach((u) => URL.revokeObjectURL(u));
-    };
-  }, []);
-
-  const setFile = (key: ScanSlotKey, file: File | undefined) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast("이미지 파일만 올릴 수 있어요");
+export function ScanFlow() {
+  const router = useRouter();
+  const reviewer = useMemo(() => new GeminiImageReviewer(), []);
+  // 키는 브라우저(localStorage)에 있다. 정적 빌드 HTML 과 첫 렌더를 맞추려고 외부 저장소로 구독한다
+  // 서버 스냅샷 null = 아직 확인 전. 클라이언트 스냅샷은 원시값이라 매 렌더 안정적이다
+  const keySnapshot = useSyncExternalStore(
+    subscribeDirectKey,
+    () => `${hasSavedKey() ? "saved" : "env"}:${getDirectKey()}`,
+    () => null,
+  );
+  const fbState = useMemo<FirebaseStatus | null>(() => (keySnapshot === null ? null : firebaseStatus()), [keySnapshot]);
+  const fb: FirebaseStatus = fbState ?? { configured: false, missing: [], appCheck: "missing", model: GEMINI_MODEL, mode: "firebase" };
+  const keySaved = keySnapshot?.startsWith("saved:") ?? false;
+  const [keyInput, setKeyInput] = useState("");
+  const [keyEditing, setKeyEditing] = useState(false);
+  const [keyMessage, setKeyMessage] = useState<string | null>(null);
+  const submitKey = (value: string) => {
+    const v = value.trim();
+    if (v && !/^[A-Za-z0-9_-]{20,}$/.test(v)) {
+      setKeyMessage("키 형식이 올바르지 않습니다. 복사한 키 전체를 붙여 넣어 주세요.");
       return;
     }
-    const url = URL.createObjectURL(file);
-    urlsRef.current.push(url);
-    setPhotos((prev) => ({ ...prev, [key]: { file, url } }));
+    if (!saveDirectKey(v)) {
+      setKeyMessage("이 브라우저에서는 키를 저장할 수 없습니다(사생활 보호 모드 등).");
+      return;
+    }
+    setKeyInput("");
+    setKeyEditing(false);
+    setKeyMessage(v ? "이 기기에 키를 저장했습니다." : "저장된 키를 삭제했습니다.");
+  };
+  const showKeyForm = keyEditing || (fbState !== null && !fb.configured);
+  const dbReady = useMemo(() => supabaseConfigured(), []);
+
+  const [phase, setPhase] = useState<Phase>("intro");
+  const [consentAnalysis, setConsentAnalysis] = useState(false);
+  const [consentStorage, setConsentStorage] = useState(false);
+  const [session, setSession] = useState<ScanSession | null>(null);
+  const [pending, setPending] = useState<Captured | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const [stepError, setStepError] = useState<ScanError | null>(null);
+  const [phaseError, setPhaseError] = useState<{ message: string; retry: () => void } | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [recent, setRecent] = useState<ScanSession[]>([]);
+
+  const abortRef = useRef<AbortController | null>(null);
+  const pendingIdRef = useRef<string | null>(null);
+  const analysisRef = useRef<GarmentAnalysis | null>(null);
+  const sessionRef = useRef<ScanSession | null>(null);
+
+  useEffect(() => {
+    listSessions().then(setRecent).catch(() => setRecent([]));
+    return () => abortRef.current?.abort();
+  }, []);
+
+  const commit = useCallback((next: ScanSession) => {
+    sessionRef.current = next;
+    setSession(next);
+    void saveSession(next).catch(() => undefined);
+  }, []);
+
+  const signal = () => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    return abortRef.current.signal;
   };
 
-  const removePhoto = (key: ScanSlotKey) =>
-    setPhotos((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
+  /* ───── 시작 ───── */
+  const start = () => {
+    const now = new Date().toISOString();
+    commit({
+      id: newId(),
+      createdAt: now,
+      updatedAt: now,
+      consent: { analysis: true, storage: consentStorage && dbReady, at: now },
+      model: reviewer.model,
+      flow: createFlow(),
+      images: [],
+      analysis: null,
+      match: null,
+      product: null,
+      record: null,
+      remote: null,
     });
-
-  const loadSamples = () => {
-    setPhotos({
-      front: { file: "sample", url: null },
-      label: { file: "sample", url: null },
-      back: { file: "sample", url: null },
-    });
-    toast("샘플 사진을 불러왔어요");
-  };
-
-  const ready = Boolean(photos.front && photos.label);
-
-  const start = async () => {
-    if (!ready) return;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setStep(0);
-    setPhase("analyzing");
+    setPhase("capture");
     window.scrollTo({ top: 0 });
+  };
+
+  const flow = session?.flow;
+  const idx = flow ? currentStepIndex(flow) : -1;
+  const step = flow && idx >= 0 ? flow.steps[idx] : null;
+
+  /* ───── 촬영 ───── */
+  const onCaptured = (c: Captured) => {
+    setStepError(null);
+    pendingIdRef.current = newId();
+    setPending(c);
+  };
+
+  const discardPending = () => {
+    if (pending) URL.revokeObjectURL(pending.url);
+    setPending(null);
+    pendingIdRef.current = null;
+  };
+
+  const updateFlow = (s: ScanSession, nextFlow: FlowState, images: ScanImageMeta[]) => {
+    const next = { ...s, flow: nextFlow, images };
+    commit(next);
+    if (isCaptureDone(nextFlow)) void runAnalysis(next);
+  };
+
+  const confirmShot = async () => {
+    const s = sessionRef.current;
+    if (!s || !step || !pending || !pendingIdRef.current) return;
+    const imageId = pendingIdRef.current;
+    const q = pending.quality;
+    await saveBlob(imageId, pending.blob);
+
+    const meta: ScanImageMeta = {
+      id: imageId,
+      stepId: step.id,
+      target: step.target,
+      createdAt: new Date().toISOString(),
+      width: pending.width,
+      height: pending.height,
+      blurScore: q.blurScore,
+      brightness: q.brightness,
+      source: pending.source,
+      review: null,
+      decision: "pending",
+      qualityOverride: q.blurry || q.dark,
+    };
+    const images = [...s.images.filter((i) => i.id !== imageId), meta];
+
+    setReviewing(true);
+    setStepError(null);
     try {
-      const input = Object.fromEntries(
-        Object.entries(photos).map(([k, p]) => [k, p.file]),
-      ) as Partial<Record<ScanSlotKey, File | "sample">>;
-      const res = await analyzeGarment({ photos: input }, setStep, controller.signal);
-      setResult(res);
-      setPhase("result");
-      logActivity("scan", res.productId, "옷을 스캔해 아카이브와 비교했어요");
-    } catch {
-      // 분석 도중 취소된 경우
+      const review = await reviewer.reviewShot({ imageId, blob: pending.blob, target: step.target, attempt: step.attempts + 1 }, signal());
+      const decision = decideFromReview(step.target, review);
+      const nextImages = images.map((i) => (i.id === imageId ? { ...i, review, decision: decision.kind } : i));
+      setPending(null);
+      pendingIdRef.current = null;
+      updateFlow(s, applyShot(s.flow, step.id, imageId, decision, review), nextImages);
+    } catch (err) {
+      const e = toScanError(err);
+      if (e.kind !== "aborted") setStepError(e);
+      commit({ ...s, images });
+    } finally {
+      setReviewing(false);
+    }
+  };
+
+  /** AI 오류 시 — 검토 없이 이 사진으로 진행 (단계에는 'AI 검토 없음'으로 남는다) */
+  const continueWithoutReview = () => {
+    const s = sessionRef.current;
+    if (!s || !step || !pendingIdRef.current) return;
+    const imageId = pendingIdRef.current;
+    const images = s.images.map((i) => (i.id === imageId ? { ...i, decision: "unreviewed" as const } : i));
+    setPending(null);
+    pendingIdRef.current = null;
+    setStepError(null);
+    updateFlow(s, acceptUnreviewed(s.flow, step.id, imageId), images);
+  };
+
+  const skip = () => {
+    const s = sessionRef.current;
+    if (!s || !step) return;
+    discardPending();
+    updateFlow(s, skipStep(s.flow, step.id), s.images);
+  };
+
+  const useLastPhoto = () => {
+    const s = sessionRef.current;
+    if (!s || !step) return;
+    updateFlow(s, forceAccept(s.flow, step.id), s.images);
+  };
+
+  /* ───── 최종 분석 · 제품 식별 ───── */
+  const runAnalysis = async (s: ScanSession) => {
+    setPhase("analyzing");
+    setPhaseError(null);
+    setProgress(0);
+    window.scrollTo({ top: 0 });
+    const sig = signal();
+    try {
+      const used = acceptedImages(s.flow);
+      const blobs = await Promise.all(used.map((u) => getBlob(u.imageId)));
+      const images = used
+        .map((u, i) => ({ id: u.imageId, target: u.target, reviewed: u.reviewed, blob: blobs[i] as Blob }))
+        .filter((i) => i.blob);
+      if (!images.length) throw new ScanError("unknown", "분석할 사진이 없습니다. 다시 촬영해 주세요.");
+
+      const analysis = await reviewer.analyzeGarment(images, sig);
+      analysisRef.current = analysis;
+      const withAnalysis = { ...s, analysis };
+      commit(withAnalysis);
+
+      setProgress(1);
+      const code = normalizeCode(analysis.care_label.product_code.value);
+      const byCode: Awaited<ReturnType<typeof findProductsByCode>> = code ? await findProductsByCode(code) : { ok: true, data: [] };
+      if (!byCode.ok && byCode.reason === "not_configured") {
+        const match = summarizeMatch("db_unavailable", null, code, 0);
+        return finalize({ ...withAnalysis, match }, null);
+      }
+      if (!byCode.ok) throw new ScanError("server", `상품 DB 조회 실패: ${byCode.message}`);
+      const kw = await searchProductsByKeywords([analysis.garment.category.value ?? ""].filter(Boolean));
+      const list = buildCandidates(analysis, byCode.data, kw.ok ? kw.data : []);
+
+      setProgress(2);
+      const front = images.find((i) => i.target === "front_full")?.blob ?? images[0].blob;
+      const compared: Candidate[] = [];
+      for (const c of list) {
+        const ref = c.product.product_images.find((im) => ["front", "lookbook", "editorial_product"].includes(im.role) && productImageUrl(im));
+        const url = ref ? productImageUrl(ref) : null;
+        const blob = url && compared.length < 3 ? await fetchImageBlob(url, sig) : null;
+        if (!blob) {
+          compared.push(c);
+          continue;
+        }
+        try {
+          compared.push(applySimilarity(c, await reviewer.compareWithReference(front, blob, c.product.name, sig)));
+        } catch {
+          compared.push(c); // 비교 실패 — 유사도 없이 후보로만 둔다
+        }
+      }
+      compared.sort((a, b) => b.rank - a.rank);
+      setCandidates(compared);
+
+      if (!compared.length) {
+        return finalize({ ...withAnalysis, match: summarizeMatch("unconfirmed", null, code, 0) }, null);
+      }
+      setPhase("select");
+      window.scrollTo({ top: 0 });
+    } catch (err) {
+      const e = toScanError(err);
+      if (e.kind === "aborted") return;
+      setPhaseError({ message: e.message || ERROR_MESSAGE[e.kind], retry: () => void runAnalysis(sessionRef.current ?? s) });
+    }
+  };
+
+  const choose = (c: Candidate | null) => {
+    const s = sessionRef.current;
+    if (!s?.analysis) return;
+    const code = normalizeCode(s.analysis.care_label.product_code.value);
+    void finalize({ ...s, match: summarizeMatch(c ? "confirmed" : "unconfirmed", c, code, candidates.length) }, c?.product ?? null);
+  };
+
+  const finalize = async (s: ScanSession, product: DbProduct | null) => {
+    setPhase("finalizing");
+    setPhaseError(null);
+    setProgress(3);
+    const analysis = s.analysis as GarmentAnalysis;
+    const sig = signal();
+    try {
+      const listingsRes = product ? await getMarketListings(product.id) : null;
+      const listings = listingsRes?.ok ? listingsRes.data : [];
+
+      // 설명 — 확인된 상품 사실 + 사진 관찰만 사용. 실패하면 사실 · 관찰을 그대로 옮긴다.
+      let description: DescriptionLine[] = fallbackDescription(product, analysis);
+      if (product) {
+        const facts: Record<string, unknown> = Object.fromEntries(
+          Object.entries({
+            name: product.name,
+            collection: product.collection,
+            release_year: product.release_year,
+            release_season: product.release_season,
+            category: product.category,
+            color: product.color,
+            material: product.material,
+            official_description: product.description,
+          }).filter(([, v]) => v !== null && v !== ""),
+        );
+        const observations = { summary: analysis.summary_ko, color: analysis.garment.color.value, features: analysis.garment.design_features.value };
+        try {
+          const lines = await reviewer.writeDescription(facts, observations, sig);
+          if (lines.length) {
+            const ids = product.product_sources.map((x) => x.id);
+            description = lines.map((l) => ({ text: l.text, basis: l.basis, sourceIds: l.basis === "product_db" ? ids : undefined }));
+          }
+        } catch {
+          // 생성 실패 시 fallbackDescription 유지
+        }
+      }
+
+      // 아카이브 스토리 — 출처 원문 발췌가 있을 때만
+      let story: StoryBlock[] = [];
+      const excerpts = (product?.product_sources ?? []).filter((x) => x.excerpt).map((x) => ({ id: x.id, scope: x.scope, excerpt: x.excerpt as string, publisher: x.publisher }));
+      if (product && excerpts.length) {
+        try {
+          const blocks = await reviewer.writeStory({ name: product.name, collection: product.collection, release_year: product.release_year }, excerpts, sig);
+          story = blocks.map((b) => {
+            const scopes = b.source_ids.map((id) => excerpts.find((e) => e.id === id)?.scope);
+            const scope = scopes.includes("product") ? "product" : scopes.includes("collection") ? "collection" : "brand";
+            return { title: b.title, body: b.body, scope, sourceIds: b.source_ids, generatedBy: "gemini" as const };
+          });
+        } catch {
+          story = [];
+        }
+      }
+
+      const productImageUrls = Object.fromEntries((product?.product_images ?? []).map((im) => [im.id, productImageUrl(im)]));
+      const record = buildScanRecord({ session: s, analysis, product, productImageUrls, listings, description, story });
+      let done: ScanSession = { ...s, product, record };
+      commit(done);
+
+      if (done.consent.storage) {
+        const up = await uploadSession(done);
+        done = { ...done, remote: up.ok ? { status: "uploaded", at: new Date().toISOString() } : { status: "failed", error: up.error } };
+      } else {
+        done = { ...done, remote: { status: "skipped" } };
+      }
+      commit(done);
+      await saveSession(done);
+      router.push(`/archive/scan/?session=${done.id}`);
+    } catch (err) {
+      const e = toScanError(err);
+      if (e.kind === "aborted") return;
+      setPhaseError({ message: e.message, retry: () => void finalize(s, product) });
     }
   };
 
   const cancel = () => {
     abortRef.current?.abort();
-    setPhase("upload");
+    discardPending();
+    setSession(null);
+    sessionRef.current = null;
+    setPhase("intro");
+    setStepError(null);
+    setPhaseError(null);
   };
 
-  const restart = () => {
-    setPhotos({});
-    setResult(null);
-    setStep(0);
-    setPhase("upload");
-    window.scrollTo({ top: 0 });
-  };
-
-  const matched = result ? products.find((p) => p.id === result.productId) ?? sample : sample;
-  const phaseIndex = PHASES.findIndex((p) => p.key === phase);
-  const progress = Math.round((Math.min(step, SCAN_STEPS.length) / SCAN_STEPS.length) * 100);
-  const frontPhoto = photos.front;
-  const saved = closet.some((e) => e.productId === matched.id);
-
-  const preview = (photo: Photo | undefined, view: GarmentView, className: string) =>
-    photo?.url ? (
-      // eslint-disable-next-line @next/next/no-img-element -- 사용자가 방금 고른 로컬 blob 미리보기
-      <img src={photo.url} alt="" className={cx("object-cover", className)} />
-    ) : (
-      <GarmentImage spec={sample.garment} view={view} className={cx(className, (view === "front" || view === "back") && "p-[8%]")} />
-    );
+  /* ───── 화면 ───── */
+  const exhaustedRequired = step?.required && step.attempts >= MAX_ATTEMPTS && step.imageIds.length > 0;
+  const totalSteps = (flow?.steps.length ?? 3) + 1;
 
   return (
-    <div className="container-page max-w-[1000px] pt-6 md:pt-10">
+    <div className="container-page max-w-[760px] pt-6 md:pt-10">
       <div className="flex items-center justify-between">
-        <p className="eyebrow text-brand">Scan</p>
-        <DemoTag>DEMO · 실제 AI 분석 아님</DemoTag>
+        <p className="eyebrow text-brand">Scan · 실물 검수</p>
+        {phase !== "intro" && (
+          <button type="button" onClick={cancel} className="-mr-2 h-11 px-2 text-[13px] font-semibold text-sub hover:text-ink">
+            처음으로
+          </button>
+        )}
       </div>
 
-      {/* 단계 표시 */}
-      <ol className="mt-4 grid grid-cols-3 gap-1.5">
-        {PHASES.map((p, i) => (
-          <li key={p.key}>
-            <div className={cx("h-[3px]", i <= phaseIndex ? "bg-brand" : "bg-line")} />
-            <p className={cx("mt-2 text-[12px] font-bold", i <= phaseIndex ? "text-ink" : "text-faint")}>
-              <span className="mr-1 text-brand">{i + 1}</span>
-              {p.label}
-            </p>
-          </li>
-        ))}
-      </ol>
+      {flow && phase !== "intro" && (
+        <div className="mt-4">
+          <StepRail steps={flow.steps} currentId={phase === "capture" ? step?.id ?? null : null} finalActive={phase !== "capture"} />
+        </div>
+      )}
 
-      {/* STEP 1 */}
-      {phase === "upload" && (
+      {phase === "intro" && (
         <section className="animate-page pt-8">
-          <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.035em] md:text-[40px]">
+          <h1 className="text-[30px] font-extrabold leading-[1.15] tracking-[-0.035em] md:text-[40px]">
             발견한 옷을
             <br />
-            촬영해 주세요
+            단계별로 촬영해 주세요
           </h1>
-          <p className="mt-2 text-[14px] text-sub">앞면과 케어라벨 사진은 꼭 필요해요. 나머지는 있으면 더 정확해집니다.</p>
+          <p className="mt-3 text-[14px] leading-relaxed text-sub">
+            앞면 → 뒷면 → 케어라벨 순서로 촬영하면 AI가 사진마다 확인하고, 필요한 부위를 추가로 요청합니다. AI 분석은 정품 인증이 아닙니다.
+          </p>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {SLOTS.map((slot) => {
-              const photo = photos[slot.key];
-              return (
-                <div key={slot.key}>
-                  <div className={cx("relative aspect-[4/5] overflow-hidden", photo ? "bg-paper" : "border border-dashed border-faint bg-ivory")}>
-                    {photo ? (
-                      <>
-                        {preview(photo, slot.view, "h-full w-full")}
-                        <span className="absolute left-2 top-2 flex h-6 items-center gap-1 bg-ink px-1.5 text-[11px] font-bold text-white">
-                          <Check size={12} /> {photo.file === "sample" ? "샘플" : "등록됨"}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`${slot.label} 사진 삭제`}
-                          onClick={() => removePhoto(slot.key)}
-                          className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center"
-                        >
-                          <span className="flex h-7 w-7 items-center justify-center bg-white">
-                            <X size={16} />
-                          </span>
-                        </button>
-                      </>
-                    ) : (
-                      <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-2 text-sub hover:text-ink">
-                        <ImagePlus size={28} strokeWidth={1.4} />
-                        <span className="text-[12px] font-semibold">촬영 / 앨범에서 선택</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="sr-only"
-                          onChange={(e) => {
-                            setFile(slot.key, e.target.files?.[0]);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                    )}
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <p className="text-[14px] font-bold">
-                      {slot.label}
-                      {slot.required && <span className="ml-0.5 text-brand">*</span>}
+          <ol className="mt-6 grid grid-cols-5 gap-1 text-center text-[11px] font-bold">
+            {["앞면", "뒷면", "케어라벨", "추가 부위", "최종 분석"].map((s, i) => (
+              <li key={s} className="border-t-[3px] border-ink pt-2">
+                <span className="display block text-[22px] text-brand">{i + 1}</span>
+                {s}
+              </li>
+            ))}
+          </ol>
+
+          {/* 연결 상태 */}
+          <div className="mt-8 divide-y divide-line border-y border-ink">
+            <div className="flex items-start gap-3 py-3">
+              <Sparkles size={18} className={fb.configured ? "text-ink" : "text-faint"} />
+              <div className="min-w-0 flex-1 text-[13px]">
+                <p className="font-bold">AI 분석 · {fb.mode === "direct" ? "Gemini API 키" : "Firebase AI Logic"} ({fb.model})</p>
+                <p className="text-sub">
+                  {fbState === null
+                    ? "확인 중…"
+                    : fb.mode === "direct"
+                      ? keySaved
+                        ? "연결됨 · 이 기기에 저장된 키로 Gemini 를 호출합니다"
+                        : "연결됨 · .env.local 의 키로 Gemini 를 호출합니다"
+                      : fb.configured
+                        ? `연결됨 · App Check ${fb.appCheck === "debug" ? "디버그 토큰(로컬 개발)" : "reCAPTCHA Enterprise"}`
+                        : "Gemini API 키를 입력하면 바로 쓸 수 있습니다"}
+                </p>
+
+                {showKeyForm ? (
+                  <form
+                    className="mt-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      submitKey(keyInput);
+                    }}
+                  >
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        inputMode="text"
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        value={keyInput}
+                        onChange={(e) => {
+                          setKeyInput(e.target.value);
+                          setKeyMessage(null);
+                        }}
+                        placeholder="Gemini API 키 붙여 넣기"
+                        aria-label="Gemini API 키"
+                        className="min-w-0 flex-1 border border-ink bg-white px-3 py-2 text-[14px] outline-none focus:border-brand"
+                      />
+                      <button type="submit" disabled={!keyInput.trim()} className="shrink-0 bg-ink px-4 text-[13px] font-bold text-white disabled:opacity-40">
+                        저장
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
+                      키는 이 기기의 브라우저에만 저장되고 서버로 올라가지 않습니다. 사진 분석 요청에만 Google 로 전송됩니다.{" "}
+                      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline">
+                        키 발급
+                      </a>
+                      {keyEditing && (
+                        <>
+                          {" · "}
+                          <button type="button" className="underline" onClick={() => setKeyEditing(false)}>
+                            취소
+                          </button>
+                        </>
+                      )}
                     </p>
-                    {!photo && (
-                      <label className="flex h-9 cursor-pointer items-center gap-1 px-1 text-[12px] font-semibold text-sub hover:text-ink">
-                        <Camera size={14} /> 카메라
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="sr-only"
-                          onChange={(e) => {
-                            setFile(slot.key, e.target.files?.[0]);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                    )}
-                  </div>
-                  <p className="text-[12px] text-sub">{slot.hint}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 flex items-start gap-2.5 bg-paper p-4 text-[13px] leading-relaxed">
-            <Info size={16} className="mt-0.5 shrink-0 text-brand" />
-            <div>
-              <p className="font-bold">촬영 가이드</p>
-              <p className="mt-0.5 text-sub">
-                밝은 곳에서 옷을 평평하게 펼쳐 찍어 주세요. 케어라벨은 옆구리 안쪽 봉제선에 있는 경우가 많습니다.
-              </p>
+                  </form>
+                ) : (
+                  keySaved && (
+                    <p className="mt-1 text-[12px]">
+                      <button type="button" className="underline" onClick={() => setKeyEditing(true)}>
+                        키 변경
+                      </button>
+                      {" · "}
+                      <button type="button" className="underline" onClick={() => submitKey("")}>
+                        이 기기에서 키 삭제
+                      </button>
+                    </p>
+                  )
+                )}
+                {keyMessage && <p className="mt-1 text-[12px] font-bold text-brand">{keyMessage}</p>}
+              </div>
+              <span className={cx("text-[12px] font-bold", fb.configured ? "text-ink" : "text-brand")}>{fb.configured ? "준비됨" : "미설정"}</span>
+            </div>
+            <div className="flex items-start gap-3 py-3">
+              <Database size={18} className={dbReady ? "text-ink" : "text-faint"} />
+              <div className="min-w-0 flex-1 text-[13px]">
+                <p className="font-bold">상품 DB · Supabase</p>
+                <p className="text-sub">{dbReady ? "연결됨 · 품번으로 제품을 조회합니다" : "미연결 · 분석은 가능하지만 제품은 '미확인'으로 표시됩니다"}</p>
+              </div>
+              <span className={cx("text-[12px] font-bold", dbReady ? "text-ink" : "text-faint")}>{dbReady ? "준비됨" : "미연결"}</span>
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-2 md:flex-row-reverse">
-            <Button className="w-full md:flex-1" disabled={!ready} onClick={start}>
-              <Sparkles size={18} />
-              아카이브 분석 시작
-            </Button>
-            <Button variant="outline" className="w-full md:w-auto" onClick={loadSamples}>
-              샘플 사진으로 체험하기
-            </Button>
-          </div>
-          {!ready && (
-            <p className="mt-2 text-center text-[12px] text-sub md:text-right">
-              앞면과 케어라벨 사진을 등록하면 분석을 시작할 수 있어요.
+          {/* 동의 */}
+          <fieldset className="mt-6 space-y-3">
+            <legend className="mb-2 flex items-center gap-1.5 text-[14px] font-extrabold">
+              <ShieldCheck size={16} /> 사진 사용 동의
+            </legend>
+            <label className="flex cursor-pointer items-start gap-3 bg-paper p-4 text-[13px] leading-relaxed">
+              <input type="checkbox" checked={consentAnalysis} onChange={(e) => setConsentAnalysis(e.target.checked)} className="mt-0.5 size-5 accent-[#e60012]" />
+              <span>
+                <b>(필수) AI 분석을 위한 사진 전송</b>
+                <br />
+                촬영한 사진을 분석을 위해 Google Firebase AI Logic(Gemini)으로 전송합니다. 옷 외에 얼굴 · 개인정보가 찍히지 않게 해 주세요.
+              </span>
+            </label>
+            <label className={cx("flex items-start gap-3 bg-paper p-4 text-[13px] leading-relaxed", dbReady ? "cursor-pointer" : "opacity-60")}>
+              <input type="checkbox" disabled={!dbReady} checked={consentStorage && dbReady} onChange={(e) => setConsentStorage(e.target.checked)} className="mt-0.5 size-5 accent-[#e60012]" />
+              <span>
+                <b>(선택) RE:FOUND 아카이브 서버에 사진 · 분석 결과 저장</b>
+                <br />
+                분석에 쓴 사진만 비공개로 180일간 보관합니다. 동의하지 않으면 이 기기에만 저장됩니다.
+                {!dbReady && " (서버 미연결)"}
+              </span>
+            </label>
+          </fieldset>
+
+          <Button className="mt-6 w-full" disabled={!fb.configured || !consentAnalysis} onClick={start}>
+            <Sparkles size={18} /> 촬영 시작
+          </Button>
+          {!fb.configured && (
+            <p className="mt-2 text-center text-[12px] text-sub">
+              위에 Gemini API 키를 입력하면 촬영을 시작할 수 있습니다.
             </p>
+          )}
+
+          {recent.length > 0 && (
+            <div className="mt-10">
+              <p className="eyebrow text-sub">Recent · 이 기기의 스캔 기록</p>
+              <ul className="mt-3 divide-y divide-line border-y border-line">
+                {recent.slice(0, 5).map((r) => (
+                  <li key={r.id}>
+                    <Link href={`/archive/scan/?session=${r.id}`} className="flex h-14 items-center justify-between gap-3 text-[14px]">
+                      <span className="min-w-0 truncate font-bold">{r.record?.displayName}</span>
+                      <span className="flex shrink-0 items-center gap-1 text-[12px] text-sub">
+                        {r.createdAt.slice(0, 10)} <ChevronRight size={14} />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </section>
       )}
 
-      {/* STEP 2 */}
-      {phase === "analyzing" && (
-        <section className="animate-page pt-8">
-          <div className="grid gap-8 md:grid-cols-2 md:gap-12">
-            <div className="relative mx-auto aspect-[4/5] w-full max-w-[380px] overflow-hidden bg-paper">
-              {preview(frontPhoto, "front", "h-full w-full")}
-              <div className="absolute inset-x-0 h-[2px] animate-scan bg-brand shadow-[0_0_18px_4px_rgba(230,0,18,0.45)]" />
-              {["left-3 top-3 border-l-2 border-t-2", "right-3 top-3 border-r-2 border-t-2", "bottom-3 left-3 border-b-2 border-l-2", "bottom-3 right-3 border-b-2 border-r-2"].map((c) => (
-                <span key={c} className={cx("absolute h-6 w-6 border-white", c)} />
-              ))}
-              <span className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-ink px-2 py-1 text-[11px] font-bold text-white">
-                DEMO SCAN
-              </span>
-            </div>
+      {phase === "capture" && step && (
+        <section className="animate-page pt-6">
+          <CameraCapture
+            target={step.target}
+            stepLabel={`STEP ${idx + 1}/${totalSteps} · ${step.kind === "extra" ? "AI 추가 요청" : step.title}`}
+            title={step.title}
+            guide={step.guide}
+            message={step.message}
+            pending={pending}
+            busy={reviewing}
+            onCaptured={onCaptured}
+            onRetake={discardPending}
+            onConfirm={() => void confirmShot()}
+          />
 
-            <div>
-              <p className="display text-[64px] md:text-[88px]">
-                {progress}
-                <span className="text-[28px] text-brand">%</span>
+          {step.attempts > 0 && (
+            <p className="mt-3 text-[12px] text-sub">
+              촬영 {step.attempts}/{MAX_ATTEMPTS}회 · 한도를 넘으면 이 부위는 &lsquo;확인되지 않음&rsquo;으로 기록됩니다.
+            </p>
+          )}
+
+          {stepError && (
+            <div className="mt-4 border border-brand p-4" role="alert">
+              <p className="flex items-center gap-2 text-[14px] font-bold text-brand">
+                <AlertTriangle size={16} /> AI 확인 실패
               </p>
-              <div className="mt-2 h-1 bg-line">
-                <div className="h-full bg-brand transition-[width] duration-500" style={{ width: `${progress}%` }} />
+              <p className="mt-1 text-[13px] leading-relaxed">{stepError.message}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => void confirmShot()} className="inline-flex h-11 items-center justify-center gap-1.5 bg-ink text-[13px] font-bold text-white">
+                  <RotateCcw size={15} /> 다시 시도
+                </button>
+                <button type="button" onClick={continueWithoutReview} className="h-11 border border-ink text-[13px] font-bold">
+                  AI 검토 없이 계속
+                </button>
               </div>
-              <h1 className="mt-5 text-[20px] font-extrabold tracking-[-0.02em]">
-                {SCAN_STEPS[Math.min(step, SCAN_STEPS.length - 1)].label}
-              </h1>
-
-              <ul className="mt-4 divide-y divide-line border-y border-line" aria-live="polite">
-                {SCAN_STEPS.map((s, i) => {
-                  const done = i < step;
-                  const active = i === step;
-                  return (
-                    <li key={s.key} className={cx("flex h-12 items-center gap-3 text-[14px]", done ? "text-ink" : active ? "font-bold text-ink" : "text-faint")}>
-                      <span className={cx("flex h-6 w-6 items-center justify-center", done ? "bg-brand text-white" : active ? "text-brand" : "border border-line")}>
-                        {done ? <Check size={14} strokeWidth={3} /> : active ? <LoaderCircle size={18} className="animate-spin" /> : null}
-                      </span>
-                      {done ? s.doneLabel : s.label}
-                      {done && <span className="ml-auto text-[12px] text-faint">완료</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <p className="mt-4 text-[12px] leading-relaxed text-sub">
-                프로토타입에서는 실제 이미지 분석을 하지 않고, 준비된 샘플 결과를 보여 드립니다.
-              </p>
-              <Button variant="outline" className="mt-4 !h-11 w-full md:w-auto" onClick={cancel}>
-                취소
-              </Button>
             </div>
+          )}
+
+          <div className="mt-4 flex flex-wrap gap-x-4">
+            {exhaustedRequired && (
+              <button type="button" onClick={useLastPhoto} className="h-11 text-[13px] font-bold text-brand">
+                마지막 사진 그대로 사용
+              </button>
+            )}
+            {!step.required && (
+              <button type="button" onClick={skip} className="h-11 text-[13px] font-semibold text-sub underline-offset-4 hover:underline">
+                이 부위 건너뛰기 (확인되지 않음으로 기록)
+              </button>
+            )}
           </div>
         </section>
       )}
 
-      {/* STEP 3 — 매거진 형식 결과 */}
-      {phase === "result" && result && (
-        <>
-          <ScanResultFeature
-            product={matched}
-            result={result}
-            photoUrl={frontPhoto?.url ?? null}
-            saved={saved}
-            onSave={() => setSaveOpen(true)}
-            onRestart={restart}
-          />
-          <SaveToClosetModal
-            open={saveOpen}
-            onClose={() => setSaveOpen(false)}
-            product={matched}
-            conditionLabel={result.condition.label}
-          />
-        </>
+      {(phase === "analyzing" || phase === "finalizing") && (
+        <section className="animate-page pt-8" aria-live="polite">
+          <h1 className="text-[26px] font-extrabold tracking-[-0.03em]">{phaseError ? "분석을 마치지 못했습니다" : "AI가 분석하고 있어요"}</h1>
+          <ul className="mt-6 divide-y divide-line border-y border-line">
+            {PROGRESS.map((label, i) => {
+              const done = i < progress;
+              const active = i === progress && !phaseError;
+              return (
+                <li key={label} className={cx("flex h-12 items-center gap-3 text-[14px]", done || active ? "text-ink" : "text-faint", active && "font-bold")}>
+                  <span className={cx("flex size-6 items-center justify-center", done ? "bg-ink text-white" : active ? "text-brand" : "border border-line")}>
+                    {done ? <Check size={14} strokeWidth={3} /> : active ? <LoaderCircle size={18} className="animate-spin" /> : null}
+                  </span>
+                  {label}
+                </li>
+              );
+            })}
+          </ul>
+          {phaseError ? (
+            <div className="mt-5 border border-brand p-4" role="alert">
+              <p className="text-[13px] leading-relaxed">{phaseError.message}</p>
+              <Button className="mt-3 !h-11 w-full" onClick={phaseError.retry}>
+                <RotateCcw size={16} /> 다시 시도
+              </Button>
+            </div>
+          ) : (
+            <p className="mt-4 text-[12px] leading-relaxed text-sub">사진 수에 따라 30초에서 1분 정도 걸립니다. 화면을 닫지 말아 주세요.</p>
+          )}
+        </section>
+      )}
+
+      {phase === "select" && session?.analysis && (
+        <CandidatePicker candidates={candidates} recognizedCode={normalizeCode(session.analysis.care_label.product_code.value)} onChoose={choose} />
       )}
     </div>
   );
