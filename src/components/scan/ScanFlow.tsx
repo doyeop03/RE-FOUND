@@ -434,7 +434,7 @@ export function ScanFlow() {
                     : fb.mode === "direct"
                       ? keySaved
                         ? "연결됨 · 이 기기에 저장된 키로 Gemini 를 호출합니다"
-                        : "연결됨 · .env.local 의 키로 Gemini 를 호출합니다"
+                        : "연결됨 · 서비스 기본 키로 Gemini 를 호출합니다"
                       : fb.configured
                         ? `연결됨 · App Check ${fb.appCheck === "debug" ? "디버그 토큰(로컬 개발)" : "reCAPTCHA Enterprise"}`
                         : "Gemini API 키를 입력하면 바로 쓸 수 있습니다"}

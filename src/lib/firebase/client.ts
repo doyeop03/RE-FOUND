@@ -31,8 +31,9 @@ export const GEMINI_MODEL = process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-4-hy
 
 /**
  * Gemini API 키 직접 호출 모드 (Firebase · App Check 불필요). 키 출처는 두 가지:
- * 1. 사용자가 스캔 화면에서 입력한 키 — 그 기기 브라우저(localStorage)에만 저장된다. 배포 사이트는 이 방식만 쓴다.
- * 2. 로컬 개발용 .env.local 의 NEXT_PUBLIC_GEMINI_API_KEY — 빌드 결과물에 그대로 들어가므로 배포용 빌드에는 절대 넣지 않는다.
+ * 1. 사용자가 스캔 화면에서 입력한 키 — 그 기기 브라우저(localStorage)에만 저장되고, 있으면 우선 쓴다.
+ * 2. 서비스 기본 키 NEXT_PUBLIC_GEMINI_API_KEY — 로컬은 .env.local, 배포는 GitHub Secret GEMINI_API_KEY 로 빌드에 들어간다.
+ *    배포된 JS 에서 누구나 볼 수 있으므로 Google Cloud 콘솔에서 HTTP 리퍼러(사이트 도메인) 제한을 걸어 둔다.
  */
 const ENV_GEMINI_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 const KEY_STORAGE = "refound.geminiApiKey";

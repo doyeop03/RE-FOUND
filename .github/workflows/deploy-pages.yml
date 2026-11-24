@@ -40,6 +40,9 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
           NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY: ${{ vars.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY }}
           NEXT_PUBLIC_GEMINI_MODEL: ${{ vars.NEXT_PUBLIC_GEMINI_MODEL }}
+          # 서비스 기본 Gemini 키 (Settings > Secrets and variables > Actions > Secrets 의 GEMINI_API_KEY)
+          # 방문자가 키 입력 없이 바로 쓰도록 빌드에 넣는다 — 배포된 JS 에서 보이므로 Google Cloud 콘솔에서 도메인 제한을 걸어 둔다
+          NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
