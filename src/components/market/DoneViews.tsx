@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { buttonLinkClass } from "@/components/ui/primitives";
+import { productHref } from "@/lib/product-links";
 import { won } from "@/lib/format";
 import { findListing, shippingFeeOf } from "@/lib/listing";
 import { useAppState } from "@/store/app-store";
@@ -54,7 +55,7 @@ export function SellDone({ product }: { product: Product }) {
       eyebrow="LISTED · DEMO"
       title="이 옷의 다음 이야기가 시작됐어요"
       sub="판매 등록이 완료된 상태의 시연 화면입니다."
-      primary={{ href: `/market/${product.id}`, label: "등록한 상품 상세 보기" }}
+      primary={{ href: productHref(product.id, "market"), label: "등록한 상품 상세 보기" }}
       secondary={{ href: "/my?tab=selling", label: "나의 옷장으로" }}
       note="프로토타입용 완료 상태이며 실제 등록·거래·결제 데이터는 생성되지 않습니다."
     >

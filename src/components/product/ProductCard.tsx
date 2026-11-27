@@ -6,6 +6,7 @@ import { VerificationBadge } from "@/components/verification/VerificationBadge";
 import { PRODUCT_PHOTOS } from "@/data/product-photos";
 import { cx, priceRange, seasonLabel, won } from "@/lib/format";
 import type { Listing, Product } from "@/types";
+import { productHref } from "@/lib/product-links";
 import { LikeButton } from "./LikeButton";
 
 interface Props {
@@ -29,7 +30,7 @@ export function ProductCard({ product, rank, className, invert, badge = "rarity"
   const soldOut = listing?.status === "sold_out";
   return (
     <Link
-      href={onSale ? `/market/${product.id}` : `/archive/${product.id}`}
+      href={productHref(product.id, onSale ? "market" : "detail")}
       className={cx("group block min-w-0", className)}
     >
       <div className={cx("relative aspect-[4/5] overflow-hidden", invert ? "bg-[#1c1c1c]" : "bg-paper")}>

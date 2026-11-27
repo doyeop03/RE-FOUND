@@ -6,6 +6,7 @@ import { ArrowRight, Check, Droplets, Plus, Scissors, Share2, Tag } from "lucide
 import { SaveToClosetModal } from "@/components/closet/SaveToClosetModal";
 import { LikeButton } from "@/components/product/LikeButton";
 import { Button, buttonLinkClass } from "@/components/ui/primitives";
+import { productHref } from "@/lib/product-links";
 import { useAppState } from "@/store/app-store";
 import { toast } from "@/store/toast-store";
 import type { Product, ServiceType } from "@/types";
@@ -116,7 +117,7 @@ export function ServiceSection({ product }: { product: Product }) {
             <li key={s.type} className="bg-white">
               {/* 재판매는 판매 정보 작성 화면(Figma 10)으로, 클리닝 · 수선은 신청 모달로 */}
               {s.type === "resale" ? (
-                <Link href={`/sell/${product.id}`} className={className}>
+                <Link href={productHref(product.id, "sell")} className={className}>
                   {inner}
                 </Link>
               ) : (

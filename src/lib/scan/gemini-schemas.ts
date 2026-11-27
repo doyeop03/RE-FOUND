@@ -1,5 +1,5 @@
 import { Schema } from "firebase/ai";
-import { CONCERN_TYPES, TARGETS } from "./schemas";
+import { CONCERN_TYPES, CURATION_CATEGORIES, CURATION_FABRICS, TARGETS } from "./schemas";
 
 /**
  * Firebase AI Logic responseSchema — schemas.ts(zod)와 같은 구조를 유지한다.
@@ -126,6 +126,61 @@ export const storySchema = Schema.object({
   properties: {
     blocks: Schema.array({
       items: Schema.object({ properties: { title: str(), body: str(), source_ids: strArr() } }),
+    }),
+  },
+});
+
+const score = () => Schema.object({ properties: { score: Schema.integer(), reason: str() } });
+
+export const curationSchema = Schema.object({
+  properties: {
+    product: Schema.object({
+      properties: {
+        name: str(),
+        name_ko: str(),
+        card_label: str(),
+        category: en(CURATION_CATEGORIES),
+        collection: str(),
+        collab_partner: nstr(),
+        release_year: Schema.integer(),
+        release_term: en(["S/S", "F/W"]),
+        material: str(),
+        fit: str(),
+        color_name: str(),
+        description: str(),
+      },
+    }),
+    evaluation: Schema.object({
+      properties: { era: score(), scarcity: score(), design: score(), demand: score(), condition: score() },
+    }),
+    scarcity: Schema.object({
+      properties: {
+        production_scale: en(["limited", "small", "standard", "mass"]),
+        production_note: str(),
+        discontinued: Schema.boolean(),
+        reissued: Schema.boolean(),
+      },
+    }),
+    condition: Schema.object({ properties: { label: str(), notes: strArr() } }),
+    market: Schema.object({
+      properties: { low: Schema.integer(), high: Schema.integer(), listings: Schema.integer(), trend: en(["up", "flat", "down"]) },
+    }),
+    story: Schema.object({
+      properties: {
+        headline: str(),
+        sections: Schema.array({ items: Schema.object({ properties: { title: str(), body: str() } }) }),
+      },
+    }),
+    care: Schema.object({ properties: { material: strArr(), washing: strArr(), storage: strArr(), tips: strArr() } }),
+    garment: Schema.object({
+      properties: {
+        kind: en(["top", "pants"]),
+        color_hex: str(),
+        fabric: en(CURATION_FABRICS),
+        collar: en(["stand", "shirt", "crew", "lapel", "none"]),
+        front: en(["zip", "halfzip", "buttons", "none"]),
+        sleeve: en(["long", "short"]),
+      },
     }),
   },
 });

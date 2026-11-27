@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQueryString } from "@/lib/use-query";
 import {
@@ -17,7 +17,11 @@ import { GarmentImage } from "@/components/garment/GarmentImage";
 import { ProductCard } from "@/components/product/ProductCard";
 import { buttonLinkClass } from "@/components/ui/primitives";
 import { cx, dateLabel, seasonLabel, won } from "@/lib/format";
+import { productHref } from "@/lib/product-links";
+import { acceptedImages } from "@/lib/scan/flow";
+import { getBlob, listSessions, saveSession } from "@/lib/scan/session-store";
 import {
+  addScanToCloset,
   logActivity,
   removeFromCloset,
   resetDemoData,
@@ -28,6 +32,45 @@ import { toast } from "@/store/toast-store";
 import type { ActivityType, ClosetEntry, Product } from "@/types";
 
 type Tab = "found" | "owned" | "liked" | "selling" | "log";
+
+/** 이 기기에서 스캔한 옷 — 카드 사진은 내가 찍은 앞면, 상세는 스캔 결과 페이지 */
+interface ScanItem {
+  product: Product;
+  photo: string | null;
+  href: string;
+}
+
+/** IndexedDB 의 스캔 결과를 읽고, 아직 옷장에 넣지 않은 스캔은 '발견'에 넣는다 */
+function useScanItems() {
+  const [items, setItems] = useState<ScanItem[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const urls: string[] = [];
+    (async () => {
+      const sessions = await listSessions();
+      const out: ScanItem[] = [];
+      for (const s of sessions) {
+        if (!s.curated) continue;
+        const used = acceptedImages(s.flow);
+        const front = used.find((u) => u.target === "front_full") ?? used[0];
+        const blob = front ? await getBlob(front.imageId) : null;
+        const photo = blob ? URL.createObjectURL(blob) : null;
+        if (photo) urls.push(photo);
+        out.push({ product: s.curated, photo, href: `/archive/scan/?session=${s.id}` });
+        if (!s.closetAdded) {
+          addScanToCloset({ productId: s.curated.id, conditionLabel: s.curated.condition.label, addedAt: s.createdAt.slice(0, 10) });
+          await saveSession({ ...s, closetAdded: true });
+        }
+      }
+      if (alive) setItems(out);
+    })().catch(() => undefined);
+    return () => {
+      alive = false;
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, []);
+  return items;
+}
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "found", label: "발견" },
@@ -70,10 +113,24 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
   const initial = params.get("tab");
   const [tab, setTab] = useState<Tab>(TABS.some((t) => t.key === initial) ? (initial as Tab) : "found");
   const { closet, likes, activities } = useAppState();
+  const scans = useScanItems();
+  const scanOf = (id: string) => scans.find((x) => x.product.id === id);
 
-  const byId = (id: string) => products.find((p) => p.id === id);
+  const byId = (id: string) => products.find((p) => p.id === id) ?? scanOf(id)?.product;
+  const hrefOf = (id: string) => productHref(id);
+  /** 카드 이미지 — 스캔한 옷은 내가 찍은 사진, 데모 상품은 일러스트 */
+  const thumb = (product: Product, className: string) => {
+    const scan = scanOf(product.id);
+    if (scan) {
+      return scan.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- 이 기기에 저장된 촬영 사진(blob URL)
+        <img src={scan.photo} alt={`${product.nameKo} 앞면`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+      ) : null;
+    }
+    return <GarmentImage spec={product.garment} label={product.nameKo} className={className} />;
+  };
   const collectedIds = new Set(closet.map((e) => e.productId));
-  const collected = products.filter((p) => collectedIds.has(p.id));
+  const collected = [...products, ...scans.map((x) => x.product)].filter((p) => collectedIds.has(p.id));
   const typeCount = new Set(collected.map((p) => p.archiveType.label)).size;
 
   const found = closet.filter((e) => e.ownership === "found");
@@ -96,7 +153,7 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
     if (!product) return null;
     return (
       <li key={entry.id} className="border border-line bg-white">
-        <Link href={entry.selling ? `/market/${product.id}` : `/archive/${product.id}`} className="group block">
+        <Link href={productHref(product.id, entry.selling ? "market" : "detail")} className="group block">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="text-[11px] font-bold tracking-[0.1em]">
               No. {String(index + 1).padStart(3, "0")}
@@ -105,8 +162,8 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
               {entry.ownership === "found" ? "FOUND · 발견" : "OWNED · 소유"}
             </span>
           </div>
-          <div className="relative aspect-square bg-paper">
-            <GarmentImage spec={product.garment} label={product.nameKo} className="h-full w-full p-[8%] transition-transform duration-300 group-hover:scale-[1.04]" />
+          <div className="relative aspect-square overflow-hidden bg-paper">
+            {thumb(product, "h-full w-full p-[8%] transition-transform duration-300 group-hover:scale-[1.04]")}
             <span className="absolute left-2 top-3 inline-flex h-[22px] min-w-[45%] items-center bg-ink px-1.5 text-[10px] font-bold text-white">
               {product.archiveType.label}
             </span>
@@ -264,10 +321,8 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
                     <p className="text-[11px] font-semibold text-faint">{dateLabel(a.at)}</p>
                     <p className="mt-0.5 text-[14px] font-bold">{a.message}</p>
                     {product && (
-                      <Link href={`/archive/${product.id}`} className="mt-2 flex items-center gap-3 border border-line p-2 hover:border-ink">
-                        <span className="h-12 w-10 shrink-0 bg-paper">
-                          <GarmentImage spec={product.garment} className="h-full w-full p-0.5" label={product.nameKo} />
-                        </span>
+                      <Link href={hrefOf(product.id)} className="mt-2 flex items-center gap-3 border border-line p-2 hover:border-ink">
+                        <span className="h-12 w-10 shrink-0 overflow-hidden bg-paper">{thumb(product, "h-full w-full p-0.5")}</span>
                         <span className="min-w-0">
                           <span className="block truncate text-[13px] font-bold">{product.name}</span>
                           <span className="block text-[11px] text-sub">{seasonLabel(product.season)}</span>

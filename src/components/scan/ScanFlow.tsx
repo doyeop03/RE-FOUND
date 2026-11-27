@@ -3,16 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronRight, Database, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronRight, Database, Images, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
 import { Button, DemoTag } from "@/components/ui/primitives";
+import { DEMO_MEDIA_KEY, DEMO_SCAN_PHOTOS, mediaKeyForCode } from "@/data/demo-scan";
 import { cx } from "@/lib/format";
 import { GEMINI_MODEL, cleanKey, consumeKeyFromHash, firebaseStatus, getDirectKey, hasSavedKey, looksLikeKey, saveDirectKey, subscribeDirectKey, type FirebaseStatus } from "@/lib/firebase/client";
 import { supabaseConfigured } from "@/lib/supabase/client";
+import { addScanToCloset } from "@/store/app-store";
 import { buildScanRecord, fallbackDescription } from "@/lib/scan/build-record";
+import { curationToProduct, type ScanProduct } from "@/lib/scan/curation";
 import { ERROR_MESSAGE, ScanError, toScanError } from "@/lib/scan/errors";
 import {
   MAX_ATTEMPTS,
   acceptUnreviewed,
+  addRequestedSteps,
   acceptedImages,
   addManualStep,
   applyShot,
@@ -29,7 +33,8 @@ import {
 import { GeminiImageReviewer } from "@/lib/scan/gemini-reviewer";
 import { applySimilarity, buildCandidates, summarizeMatch, type Candidate } from "@/lib/scan/match";
 import { normalizeCode } from "@/lib/scan/sanitize";
-import { TARGET_LABEL, type GarmentAnalysis } from "@/lib/scan/schemas";
+import { encodeFile } from "@/lib/scan/image";
+import { TARGET_LABEL, type GarmentAnalysis, type ShotReview } from "@/lib/scan/schemas";
 import { newId, type ScanImageMeta, type ScanSession } from "@/lib/scan/session";
 import { getBlob, listSessions, saveBlob, saveSession } from "@/lib/scan/session-store";
 import { fetchImageBlob, findProductsByCode, getMarketListings, productImageUrl, searchProductsByKeywords, type DbProduct } from "@/services/product-db";
@@ -50,11 +55,19 @@ import { BASE_SHORT, ScanProgress, StepCards } from "./ScanSidebar";
 /** review: 촬영 결과 확인 (Figma 03) · analyzing/finalizing: 분석 중 (Figma 04) */
 type Phase = "intro" | "capture" | "review" | "analyzing" | "select" | "finalizing";
 
+/**
+ * 프로토타입 모드 — 실제 서비스에서는 유니클로 자체 상품 정보로 상세 페이지를 채운다.
+ * 지금은 그 DB가 없으므로 Gemini 가 사진 분석 결과로 큐레이션을 작성한다. false 로 두면 기존 상품 DB 대조 흐름을 쓴다.
+ */
+const CURATE_WITH_AI = true;
+
 /** 촬영 직후 안내 — saved: 저장 완료 후 잠시 뒤 자동 이동 · detected: AI가 추가 부위를 요청 (버튼으로 이어서 촬영) */
 type Notice = { kind: "saved"; stepId: string } | { kind: "detected"; stepId: string; extraIds: string[] };
 
 /** 저장 완료 안내를 보여 주는 시간 */
 const SAVED_MS = 1800;
+/** 시연 모드 — 다음 사진을 넣기 전 잠깐 기다린다 (촬영 화면이 보이도록) */
+const DEMO_DELAY_MS = 900;
 const DAMAGE_WORDS = /손상|구멍|찢|마모|해짐|얼룩|오염|변색|보풀|올 ?풀|뜯/;
 
 /** 한국어 조사 — 마지막 글자에 받침이 있으면 a, 없으면 b ('으로/로'는 ㄹ 받침이면 '로') */
@@ -135,16 +148,21 @@ export function ScanFlow() {
   const [retakeHold, setRetakeHold] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [stepError, setStepError] = useState<ScanError | null>(null);
-  const [phaseError, setPhaseError] = useState<{ message: string; retry: () => void } | null>(null);
+  const [phaseError, setPhaseError] = useState<{ message: string; detail?: string; retry: () => void } | null>(null);
   const [progress, setProgress] = useState(0);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [recent, setRecent] = useState<ScanSession[]>([]);
+  /** 시연 모드 — 카메라 대신 준비된 실제 옷 사진(data/demo-scan.ts)을 차례로 넣는다 */
+  const [demo, setDemo] = useState(false);
+  const demoRef = useRef(false);
 
   const abortRef = useRef<AbortController | null>(null);
   /** AI 확인을 기다리는 사진 — AI 오류 때 같은 사진으로 다시 시도할 수 있게 남겨 둔다 */
   const pendingRef = useRef<{ c: Captured; imageId: string } | null>(null);
   const savedTimerRef = useRef<number | null>(null);
   const analysisRef = useRef<GarmentAnalysis | null>(null);
+  /** 분석 중 어느 단계에서 실패했는지 (오류 안내용) */
+  const stageRef = useRef("사진 종합 분석");
   const sessionRef = useRef<ScanSession | null>(session);
 
   useEffect(() => {
@@ -169,6 +187,8 @@ export function ScanFlow() {
 
   /* ───── 시작 ───── */
   const start = () => {
+    demoRef.current = false;
+    setDemo(false);
     commit(newSession(reviewer.model, consentStorage && dbReady));
     setPhase("capture");
     window.scrollTo({ top: 0 });
@@ -255,8 +275,10 @@ export function ScanFlow() {
     setReviewing(true);
     setStepError(null);
     try {
-      const review = await reviewer.reviewShot({ imageId, blob: c.blob, target: cur.target, attempt: cur.attempts + 1 }, signal());
-      const decision = decideFromReview(cur.target, review);
+      const raw = await reviewer.reviewShot({ imageId, blob: c.blob, target: cur.target, attempt: cur.attempts + 1 }, signal());
+      // 시연 모드: 준비된 사진이므로 재촬영 판정 없이 통과시키고, 시연 사진이 없는 부위 요청은 받지 않는다 (AI 확인 결과는 그대로 기록)
+      const review = demoRef.current ? { ...raw, detail_requests: raw.detail_requests.filter((r) => DEMO_SCAN_PHOTOS[r.target]) } : raw;
+      const decision = demoRef.current ? ({ kind: "accept" } as const) : decideFromReview(cur.target, review);
       const nextImages = images.map((i) => (i.id === imageId ? { ...i, review, decision: decision.kind } : i));
       pendingRef.current = null;
       const nextFlow = applyShot(s.flow, cur.id, imageId, decision, review);
@@ -364,10 +386,37 @@ export function ScanFlow() {
         .filter((i) => i.blob);
       if (!images.length) throw new ScanError("unknown", "분석할 사진이 없습니다. 다시 촬영해 주세요.");
 
+      stageRef.current = "사진 종합 분석";
       const analysis = await reviewer.analyzeGarment(images, sig);
       analysisRef.current = analysis;
       const withAnalysis = { ...s, analysis };
       commit(withAnalysis);
+
+      // 프로토타입: 상품 DB 조회 · 기준 사진 비교 대신 AI 가 유니클로 아카이브 정보를 작성한다
+      if (CURATE_WITH_AI) {
+        setProgress(1);
+        stageRef.current = "큐레이션 작성";
+        const curation = await reviewer.curateGarment(images, analysis, sig);
+        setProgress(2);
+        const code = normalizeCode(analysis.care_label.product_code.value);
+        // 큐레이션 자료 사진 — 실제 서비스에서는 상품 DB 의 스타일 · 상세 사진 (프로토타입: 품번 또는 시연 세션일 때만)
+        // 품번 칸이 비어도(일부 글자 흐림) 라벨 원문 · 사진 확인 때 읽은 글자에 품번이 있으면 같은 제품으로 본다
+        const labelTexts = [
+          analysis.care_label.visible_label_text.value,
+          ...s.images.map((im) => [im.review?.label_reading?.product_code, im.review?.label_reading?.visible_text].join(" ")),
+        ];
+        const mediaKey = mediaKeyForCode(code) ?? labelTexts.map((t) => mediaKeyForCode(normalizeCode(t))).find(Boolean) ?? (s.demo ? DEMO_MEDIA_KEY : null);
+        const curated: ScanProduct = { ...curationToProduct(curation, s.id), mediaKey };
+        const match = {
+          status: "confirmed" as const,
+          method: code ? ("product_code" as const) : ("attributes" as const),
+          productId: curated.id,
+          recognizedCode: code,
+          crossChecks: [],
+          note: "유니클로 아카이브 정보와 대조했습니다. (프로토타입: AI가 상품 DB 역할을 대신함)",
+        };
+        return finalize({ ...withAnalysis, match }, null, curated);
+      }
 
       setProgress(1);
       const code = normalizeCode(analysis.care_label.product_code.value);
@@ -408,7 +457,8 @@ export function ScanFlow() {
     } catch (err) {
       const e = toScanError(err);
       if (e.kind === "aborted") return;
-      setPhaseError({ message: e.message || ERROR_MESSAGE[e.kind], retry: () => void runAnalysis(sessionRef.current ?? s) });
+      console.error("[분석 실패]", e.kind, e.detail ?? e.message);
+      setPhaseError({ message: e.message || ERROR_MESSAGE[e.kind], detail: `${stageRef.current} · ${e.kind}${e.detail ? ` · ${e.detail.slice(0, 240)}` : ""}`, retry: () => void runAnalysis(sessionRef.current ?? s) });
     }
   };
 
@@ -419,7 +469,7 @@ export function ScanFlow() {
     void finalize({ ...s, match: summarizeMatch(c ? "confirmed" : "unconfirmed", c, code, candidates.length) }, c?.product ?? null);
   };
 
-  const finalize = async (s: ScanSession, product: DbProduct | null) => {
+  const finalize = async (s: ScanSession, product: DbProduct | null, curated: ScanProduct | null = null) => {
     setPhase("finalizing");
     setPhaseError(null);
     setProgress(3);
@@ -473,8 +523,14 @@ export function ScanFlow() {
       }
 
       const productImageUrls = Object.fromEntries((product?.product_images ?? []).map((im) => [im.id, productImageUrl(im)]));
-      const record = buildScanRecord({ session: s, analysis, product, productImageUrls, listings, description, story });
-      let done: ScanSession = { ...s, product, record };
+      const built = buildScanRecord({ session: s, analysis, product, productImageUrls, listings, description, story });
+      const record = curated ? { ...built, displayName: curated.name, displayNameKo: curated.nameKo, brand: "UNIQLO" } : built;
+      let done: ScanSession = { ...s, product, record, curated };
+      // 스캔이 끝나면 나의 옷장 '발견'에 바로 저장한다 (카드 사진은 내가 찍은 앞면)
+      if (curated) {
+        addScanToCloset({ productId: curated.id, conditionLabel: curated.condition.label });
+        done = { ...done, closetAdded: true };
+      }
       commit(done);
 
       if (done.consent.storage) {
@@ -489,11 +545,14 @@ export function ScanFlow() {
     } catch (err) {
       const e = toScanError(err);
       if (e.kind === "aborted") return;
-      setPhaseError({ message: e.message, retry: () => void finalize(s, product) });
+      console.error("[결과 저장 실패]", e.kind, e.detail ?? e.message);
+      setPhaseError({ message: e.message, detail: `결과 정리 · ${e.kind}${e.detail ? ` · ${e.detail.slice(0, 240)}` : ""}`, retry: () => void finalize(s, product, curated) });
     }
   };
 
   const cancel = () => {
+    demoRef.current = false;
+    setDemo(false);
     abortRef.current?.abort();
     clearTimer();
     rescan();
@@ -505,6 +564,54 @@ export function ScanFlow() {
     setStepError(null);
     setPhaseError(null);
   };
+
+  /** 시연 사진으로 진행 — 새 세션에서 앞면 → 뒷면 → 케어라벨 → 목 라벨 순으로 준비된 사진을 넣는다 */
+  const startDemo = () => {
+    abortRef.current?.abort();
+    clearTimer();
+    rescan();
+    setNotice(null);
+    setReviewing(false);
+    setPhaseError(null);
+    const s = newSession(reviewer.model, false);
+    const withTag = addRequestedSteps(
+      s.flow,
+      { detail_requests: [{ target: "main_tag", reason_ko: "목 라벨로 제품 라인을 확인합니다.", instruction_ko: "목 안쪽의 메인 택이 보이게 가까이 촬영해 주세요." }] } as unknown as ShotReview,
+      "demo",
+    );
+    demoRef.current = true;
+    setDemo(true);
+    commit({ ...s, flow: withTag, demo: true });
+    setPhase("capture");
+    window.scrollTo({ top: 0 });
+  };
+
+  /* 시연 모드 — 현재 단계에 맞는 사진을 갤러리에서 고른 것처럼 넣는다 (AI 확인은 실제로 진행) */
+  const stepId = step?.id ?? null;
+  const stepTarget = step?.target ?? null;
+  useEffect(() => {
+    if (!demo || phase !== "capture" || !stepId || !stepTarget || notice || retakeHold || stepError || reviewing || shot) return;
+    const photo = DEMO_SCAN_PHOTOS[stepTarget];
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      if (!photo) {
+        skip();
+        return;
+      }
+      try {
+        const blob = await (await fetch(photo.src)).blob();
+        const r = await encodeFile(new File([blob], `demo-${stepTarget}.jpg`, { type: blob.type || "image/jpeg" }));
+        if (!cancelled) onCaptured({ ...r, url: URL.createObjectURL(r.blob), source: "gallery" });
+      } catch (err) {
+        if (!cancelled) setStepError(toScanError(err));
+      }
+    }, DEMO_DELAY_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- skip · onCaptured 는 매 렌더 새로 만들어지지만 sessionRef 로 최신 상태를 읽는다
+  }, [demo, phase, stepId, stepTarget, notice, retakeHold, stepError, reviewing, shot]);
 
   /** 처음부터 다시 촬영 */
   const restart = () => {
@@ -732,7 +839,7 @@ export function ScanFlow() {
           <div className="grid gap-8 md:grid-cols-[minmax(0,760px)_310px]">
             <CameraCapture
               target={view.step.target}
-              armed={!notice && !retakeHold && !stepError && !!step}
+              armed={!demo && !notice && !retakeHold && !stepError && !!step}
               frozenUrl={shot?.url ?? null}
               tone={view.tone === "error" ? "error" : "normal"}
               busy={reviewing}
@@ -825,7 +932,20 @@ export function ScanFlow() {
                   )}
                 </div>
               )}
-              {step && !step.required && !notice && (
+              {demo ? (
+                <p className="flex items-center gap-1.5 text-[12px] font-bold text-brand">
+                  <Images size={14} /> 시연 모드 · 준비된 실제 옷 사진으로 진행 중
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startDemo}
+                  className="flex h-11 items-center justify-center gap-1.5 border border-ink bg-white text-[14px] font-bold transition-colors hover:bg-paper"
+                >
+                  <Images size={16} /> 시연 사진으로 진행
+                </button>
+              )}
+              {step && !step.required && !notice && !demo && (
                 <button type="button" onClick={skip} className="self-start text-[12px] font-semibold text-sub underline-offset-4 hover:text-ink hover:underline">
                   이 부위 건너뛰기 (확인되지 않음으로 기록)
                 </button>

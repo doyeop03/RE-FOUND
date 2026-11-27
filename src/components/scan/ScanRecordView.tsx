@@ -4,9 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, Trash2 } from "lucide-react";
+import type { GalleryPhoto } from "@/components/archive/Gallery";
+import { ProductDetail } from "@/components/archive/ProductDetail";
 import { RecordDetail } from "@/components/archive/record/RecordDetail";
 import { buttonLinkClass } from "@/components/ui/primitives";
 import { useQueryString } from "@/lib/use-query";
+import { curationMedia } from "@/data/demo-scan";
+import { acceptedImages } from "@/lib/scan/flow";
+import { TARGET_LABEL, type Target } from "@/lib/scan/schemas";
 import { deleteSession, getBlob, getSession } from "@/lib/scan/session-store";
 import type { ScanSession } from "@/lib/scan/session";
 import type { ArchiveRecord } from "@/types/archive-record";
@@ -16,7 +21,15 @@ type State =
   | { kind: "loading" }
   | { kind: "missing" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; session: ScanSession; record: ArchiveRecord };
+  | { kind: "ready"; session: ScanSession; record: ArchiveRecord; photos: GalleryPhoto[] };
+
+/** 갤러리 라벨 — 촬영한 부위 이름 (짧게) */
+const PHOTO_LABEL: Partial<Record<Target, string>> = {
+  front_full: "앞면",
+  back_full: "뒷면",
+  care_label: "케어라벨",
+  main_tag: "목 라벨",
+};
 
 /**
  * 실제 스캔 결과 상세 — /archive/scan/?session=<id>
@@ -49,7 +62,14 @@ function Inner({ id }: { id: string | null }) {
           return { ...im, src: url };
         }),
       );
-      if (alive) setState({ kind: "ready", session, record: { ...session.record, images } });
+      const srcOf = new Map(images.map((im) => [im.id, im.src]));
+      const used = acceptedImages(session.flow);
+      // 촬영 순서 그대로 — 실제로 찍은 사진만 (없는 부위를 일러스트로 채우지 않는다)
+      const photos: GalleryPhoto[] = used.flatMap((u) => {
+        const src = srcOf.get(u.imageId);
+        return src ? [{ label: PHOTO_LABEL[u.target] ?? TARGET_LABEL[u.target], src }] : [];
+      });
+      if (alive) setState({ kind: "ready", session, record: { ...session.record, images }, photos });
     })().catch((e) => alive && setState({ kind: "error", message: String(e?.message ?? e) }));
     return () => {
       alive = false;
@@ -84,8 +104,9 @@ function Inner({ id }: { id: string | null }) {
     );
   }
 
-  const { session, record } = state;
+  const { session, record, photos } = state;
   const remote = session.remote;
+  const curated = session.curated ?? null;
   return (
     <>
       <div className="container-page">
@@ -108,9 +129,9 @@ function Inner({ id }: { id: string | null }) {
             <Trash2 size={13} /> 기기에서 삭제
           </button>
         </div>
-        <ScanProgress active={2} variant="result" className="mt-5" />
+        {!curated && <ScanProgress active={2} variant="result" className="mt-5" />}
       </div>
-      <RecordDetail record={record} />
+      {curated ? <ProductDetail product={curated} care={curated.care} variant="scan" photos={photos} media={curationMedia(curated.mediaKey)} /> : <RecordDetail record={record} />}
     </>
   );
 }

@@ -4,12 +4,13 @@ import { getGenerativeModel, type ObjectSchema, type Part } from "firebase/ai";
 import type { z } from "zod";
 import { GEMINI_MODEL, getAIService, getDirectKey } from "@/lib/firebase/client";
 import { ERROR_MESSAGE, ScanError, toScanError } from "./errors";
-import { compareSchema, descriptionSchema, garmentAnalysisSchema, shotReviewSchema, storySchema } from "./gemini-schemas";
+import { compareSchema, curationSchema, descriptionSchema, garmentAnalysisSchema, shotReviewSchema, storySchema } from "./gemini-schemas";
 import { blobToBase64 } from "./image";
-import { comparePrompt, descriptionPrompt, garmentAnalysisPrompt, shotReviewPrompt, storyPrompt } from "./prompts";
+import { comparePrompt, curationPrompt, descriptionPrompt, garmentAnalysisPrompt, shotReviewPrompt, storyPrompt } from "./prompts";
 import { guardDescription, guardStory, sanitizeAnalysis, sanitizeShotReview } from "./sanitize";
-import { CompareSchema, DescriptionSchema, GarmentAnalysisSchema, ShotReviewSchema, StorySchema } from "./schemas";
+import { CompareSchema, CurationSchema, DescriptionSchema, GarmentAnalysisSchema, ShotReviewSchema, StorySchema } from "./schemas";
 import type { AnalysisImage, ShotInput, ShotReviewer } from "./reviewer";
+import type { GarmentAnalysis } from "./schemas";
 
 /**
  * Firebase AI Logic(Gemini Developer API) 구현.
@@ -18,7 +19,7 @@ import type { AnalysisImage, ShotInput, ShotReviewer } from "./reviewer";
  * - 네트워크 · 서버 오류는 1회만 자동 재시도한다. 나머지는 ScanError 로 올려 화면에서 재시도 버튼을 보여 준다.
  */
 
-const TIMEOUT = { review: 45_000, analysis: 120_000, small: 45_000 };
+const TIMEOUT = { review: 45_000, analysis: 120_000, small: 45_000, curation: 120_000 };
 
 async function imagePart(blob: Blob): Promise<Part> {
   return { type: "inlineData", inlineData: { mimeType: blob.type || "image/jpeg", data: await blobToBase64(blob) } } as Part;
@@ -45,20 +46,20 @@ const PRIMARY_COOLDOWN_MS = 3 * 60_000;
 let primaryBusyUntil = 0;
 
 type GeminiBody = {
-  error?: { message?: string; status?: string };
+  error?: { message?: string; status?: string; details?: { "@type"?: string; retryDelay?: string }[] };
   promptFeedback?: { blockReason?: string };
   candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
 } | null;
 
 /** Gemini API 키로 generativelanguage REST 를 직접 호출하고 응답 텍스트를 돌려준다 */
-async function generateDirect(schema: ObjectSchema, parts: (string | Part)[], timeout: number, signal?: AbortSignal): Promise<string> {
+async function generateDirect(schema: ObjectSchema, parts: (string | Part)[], timeout: number, signal?: AbortSignal, temperature = 0.1): Promise<string> {
   const restParts = parts.map((p) =>
     typeof p === "string" ? { text: p } : { inlineData: (p as { inlineData: { mimeType: string; data: string } }).inlineData },
   );
   const timeoutSignal = AbortSignal.timeout(timeout);
   const requestBody = JSON.stringify({
     contents: [{ role: "user", parts: restParts }],
-    generationConfig: { responseMimeType: "application/json", responseSchema: toRestSchema(JSON.parse(JSON.stringify(schema))), temperature: 0.1 },
+    generationConfig: { responseMimeType: "application/json", responseSchema: toRestSchema(JSON.parse(JSON.stringify(schema))), temperature },
   });
   const post = (model: string) =>
     fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
@@ -84,12 +85,16 @@ async function generateDirect(schema: ObjectSchema, parts: (string | Part)[], ti
     if (/API key not valid|API_KEY_INVALID/i.test(msg)) throw new ScanError("not_configured", "Gemini API 키가 올바르지 않습니다. 스캔 화면에서 키를 다시 입력해 주세요.", msg);
     if (res.status === 403) throw new ScanError("not_configured", "Gemini API 키에 이 모델을 쓸 권한이 없습니다.", msg);
     if (res.status === 404) throw new ScanError("not_configured", `모델 ${model} 을(를) 찾을 수 없습니다. NEXT_PUBLIC_GEMINI_MODEL 을 확인해 주세요.`, msg);
-    throw Object.assign(new Error(`[${res.status}] ${msg}`), { customErrorData: { status: res.status } });
+    // 429 응답의 RetryInfo(예: "23s") — 이 시간만큼 기다렸다가 다시 보낸다
+    const delay = body?.error?.details?.find((d) => d.retryDelay)?.retryDelay;
+    const retryAfterMs = delay ? Math.ceil(parseFloat(delay) * 1000) : undefined;
+    throw Object.assign(new Error(`[${res.status}] ${model}: ${msg}`), { customErrorData: { status: res.status }, retryAfterMs });
   }
   if (body?.promptFeedback?.blockReason) throw new ScanError("blocked", ERROR_MESSAGE.blocked, body.promptFeedback.blockReason);
   const cand = body?.candidates?.[0];
   if (cand?.finishReason && /SAFETY|PROHIBITED|BLOCKLIST|SPII/.test(cand.finishReason)) throw new ScanError("blocked", ERROR_MESSAGE.blocked, cand.finishReason);
   const text = (cand?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("");
+  if (cand?.finishReason === "MAX_TOKENS") throw new ScanError("invalid_response", ERROR_MESSAGE.invalid_response, `응답이 길이 제한에서 잘림 (${model}, MAX_TOKENS)`);
   if (!text) throw new ScanError("invalid_response", ERROR_MESSAGE.invalid_response, `빈 응답 (finishReason: ${cand?.finishReason ?? "없음"})`);
   return text;
 }
@@ -100,23 +105,31 @@ async function callStructured<T>(
   parts: (string | Part)[],
   timeout: number,
   signal?: AbortSignal,
+  temperature = 0.1,
 ): Promise<T> {
   const generate: () => Promise<string> = getDirectKey()
-    ? () => generateDirect(schema, parts, timeout, signal)
+    ? () => generateDirect(schema, parts, timeout, signal, temperature)
     : (() => {
         const model = getGenerativeModel(
           getAIService(),
           {
             model: GEMINI_MODEL,
-            generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.1 },
+            generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature },
           },
           { timeout },
         );
         return async () => (await model.generateContent(parts, { signal, timeout })).response.text();
       })();
 
+  /**
+   * 재시도 규칙 (분석 화면에서 실패하지 않도록)
+   * - 네트워크 · 서버 오류: 1.2초 뒤 다시
+   * - 요청 한도(429): 서버가 알려 준 시간(없으면 15초, 최대 30초)만큼 기다렸다가 다시 — 최대 2번
+   * - 응답 형식 오류 · 잘린 응답: 바로 한 번 더
+   */
+  const MAX_TRIES = 3;
   let lastError: ScanError | null = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_TRIES; attempt += 1) {
     if (signal?.aborted) throw new ScanError("aborted", ERROR_MESSAGE.aborted);
     try {
       const text = await generate();
@@ -133,9 +146,18 @@ async function callStructured<T>(
       return parsed.data;
     } catch (err) {
       lastError = toScanError(err);
-      const transient = lastError.kind === "network" || lastError.kind === "server";
-      if (!transient || attempt === 1) throw lastError;
-      await new Promise((r) => setTimeout(r, 1200));
+      const kind = lastError.kind;
+      const wait =
+        kind === "network" || kind === "server"
+          ? attempt < 1 ? 1200 : null
+          : kind === "rate_limited"
+            ? Math.min((err as { retryAfterMs?: number }).retryAfterMs ?? 15_000, 30_000)
+            : kind === "invalid_response"
+              ? attempt < 1 ? 0 : null
+              : null;
+      console.warn(`[Gemini] 시도 ${attempt + 1}/${MAX_TRIES} 실패 · ${kind}`, lastError.detail ?? lastError.message);
+      if (wait === null || attempt === MAX_TRIES - 1) throw lastError;
+      await new Promise((r) => setTimeout(r, wait));
     }
   }
   throw lastError ?? new ScanError("unknown", ERROR_MESSAGE.unknown);
@@ -162,6 +184,17 @@ export class GeminiImageReviewer implements ShotReviewer {
     }
     const out = await callStructured(garmentAnalysisSchema, GarmentAnalysisSchema, parts, TIMEOUT.analysis, signal);
     return sanitizeAnalysis(out, images.map((i) => i.id));
+  }
+
+  /** 사진 + 분석 결과 → 아카이브 상세(Figma 05)에 들어갈 큐레이션 (프로토타입: 상품 DB 대신 Gemini 가 작성) */
+  async curateGarment(images: AnalysisImage[], analysis: GarmentAnalysis, signal?: AbortSignal) {
+    const today = new Date().toISOString().slice(0, 10);
+    const parts: (string | Part)[] = [curationPrompt(JSON.stringify(analysis), today)];
+    // 앞면 · 뒷면 · 케어라벨만 보낸다 (요청 크기를 줄이고 판단에 필요한 사진만)
+    for (const im of images.filter((i) => ["front_full", "back_full", "care_label", "main_tag"].includes(i.target))) {
+      parts.push(`IMAGE ${im.id}`, await imagePart(im.blob));
+    }
+    return callStructured(curationSchema, CurationSchema, parts, TIMEOUT.curation, signal, 0.6);
   }
 
   async compareWithReference(user: Blob, reference: Blob, candidateName: string, signal?: AbortSignal) {

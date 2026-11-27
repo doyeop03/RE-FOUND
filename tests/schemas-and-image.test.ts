@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import * as fb from "@/lib/scan/gemini-schemas";
 import { assessQuality, laplacianVariance } from "@/lib/scan/image";
-import { CompareSchema, DescriptionSchema, GarmentAnalysisSchema, ShotReviewSchema, StorySchema } from "@/lib/scan/schemas";
+import { CompareSchema, CurationSchema, DescriptionSchema, GarmentAnalysisSchema, ShotReviewSchema, StorySchema } from "@/lib/scan/schemas";
 
 /** Firebase Schema 와 zod 스키마의 필드 이름이 같은지 재귀 비교 */
 function fbKeys(s: Record<string, unknown>): unknown {
@@ -28,6 +28,7 @@ describe("Gemini responseSchema ↔ zod 검증 스키마 일치", () => {
     ["compare", fb.compareSchema, CompareSchema],
     ["description", fb.descriptionSchema, DescriptionSchema],
     ["story", fb.storySchema, StorySchema],
+    ["curation", fb.curationSchema, CurationSchema],
   ] as const)("%s", (_, a, b) => {
     expect(fbKeys(a as unknown as Record<string, unknown>)).toEqual(zodKeys(b));
   });

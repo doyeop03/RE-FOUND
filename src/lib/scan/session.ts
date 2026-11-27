@@ -1,5 +1,6 @@
 import type { ArchiveRecord, MatchSummary } from "@/types/archive-record";
 import type { DbProduct } from "@/services/product-db";
+import type { ScanProduct } from "./curation";
 import type { FlowState } from "./flow";
 import type { GarmentAnalysis, ShotReview, Target } from "./schemas";
 
@@ -33,6 +34,12 @@ export interface ScanSession {
   match: MatchSummary | null;
   product: DbProduct | null;
   record: ArchiveRecord | null;
+  /** AI 큐레이션 결과 (프로토타입: 유니클로 상품 DB 역할) — 있으면 Figma 05 레이아웃으로 보여 준다 */
+  curated?: ScanProduct | null;
+  /** '시연 사진으로 진행'으로 만든 세션 */
+  demo?: boolean;
+  /** 나의 옷장에 자동으로 넣었는지 — 사용자가 옷장에서 지운 뒤 다시 들어가지 않도록 */
+  closetAdded?: boolean;
   remote: { status: "skipped" | "uploaded" | "failed"; at?: string; error?: string } | null;
 }
 

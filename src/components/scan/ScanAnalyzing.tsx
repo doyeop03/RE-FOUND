@@ -7,7 +7,7 @@ import { cx } from "@/lib/format";
 /**
  * Figma 04 — 분석 중.
  * 실제 분석 단계(progress 0~3)를 디자인의 항목 목록과 퍼센트로 보여 준다.
- *  0 사진 종합 분석 → 1 상품 DB 조회 → 2 기준 사진 비교 → 3 상세 페이지 구성
+ *  0 사진 종합 분석 → 1 아카이브 큐레이션 작성(프로토타입: AI가 상품 DB 역할) → 2 결과 정리 → 3 상세 페이지 구성
  */
 
 const ROWS: { label: string; doneAt: number }[] = [
@@ -25,7 +25,7 @@ const TARGET = [34, 56, 78, 94];
 interface Props {
   photoUrl: string | null;
   progress: number;
-  error: { message: string; retry: () => void } | null;
+  error: { message: string; detail?: string; retry: () => void } | null;
   onCancel: () => void;
 }
 
@@ -104,6 +104,7 @@ export function ScanAnalyzing({ photoUrl, progress, error, onCancel }: Props) {
         {error ? (
           <div className="mt-4 border border-brand p-4" role="alert">
             <p className="text-[13px] leading-relaxed">{error.message}</p>
+            {error.detail && <p className="mt-1 break-all text-[11px] leading-relaxed text-faint">원인: {error.detail}</p>}
             <button type="button" onClick={error.retry} className="mt-3 inline-flex h-11 items-center gap-1.5 bg-brand px-4 text-[14px] font-bold text-white hover:bg-brand-dark">
               <RotateCcw size={15} /> 다시 시도
             </button>

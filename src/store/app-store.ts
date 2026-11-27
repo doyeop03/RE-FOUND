@@ -34,15 +34,6 @@ const SEED: AppState = {
       selling: false,
     },
     {
-      id: "c-seed-2",
-      productId: "fleece-00-halfzip",
-      ownership: "found",
-      addedAt: "2026-11-03",
-      conditionLabel: "보통",
-      selling: false,
-      place: "세컨드룸 · 성수",
-    },
-    {
       id: "c-seed-3",
       productId: "oxford-07-shirt",
       ownership: "owned",
@@ -54,13 +45,6 @@ const SEED: AppState = {
   ],
   likes: ["plusj-09-coat", "ut-03-graphic"],
   activities: [
-    {
-      id: "a-seed-3",
-      type: "save",
-      productId: "fleece-00-halfzip",
-      message: "세컨드룸에서 발견한 옷을 옷장에 저장했어요",
-      at: "2026-11-03",
-    },
     {
       id: "a-seed-2",
       type: "wear",
@@ -78,6 +62,10 @@ const SEED: AppState = {
   ],
 };
 
+/** 예전에 시드로 넣었던 임시 항목 — 이미 저장된 상태에서도 지운다 (발견 탭의 빨간 플리스) */
+const REMOVED_SEED_CLOSET = new Set(["c-seed-2"]);
+const REMOVED_SEED_ACTIVITY = new Set(["a-seed-3"]);
+
 let state: AppState = SEED;
 let loaded = false;
 const listeners = new Set<() => void>();
@@ -89,9 +77,9 @@ function load() {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AppState>;
       state = {
-        closet: parsed.closet ?? SEED.closet,
+        closet: (parsed.closet ?? SEED.closet).filter((e) => !REMOVED_SEED_CLOSET.has(e.id)),
         likes: parsed.likes ?? SEED.likes,
-        activities: parsed.activities ?? SEED.activities,
+        activities: (parsed.activities ?? SEED.activities).filter((a) => !REMOVED_SEED_ACTIVITY.has(a.id)),
       };
     }
   } catch {
@@ -194,6 +182,23 @@ export function addToCloset(input: {
     activities: [activity, ...state.activities],
   });
   return entry;
+}
+
+/** 스캔한 옷을 옷장 '발견'에 저장 — 같은 스캔은 한 번만 들어간다 */
+export function addScanToCloset(input: { productId: string; conditionLabel: string; addedAt?: string }) {
+  if (!loaded && typeof window !== "undefined") load();
+  if (state.closet.some((e) => e.productId === input.productId)) return;
+  const at = input.addedAt ?? today();
+  const entry: ClosetEntry = {
+    id: uid("c"),
+    productId: input.productId,
+    ownership: "found",
+    addedAt: at,
+    conditionLabel: input.conditionLabel,
+    selling: false,
+  };
+  const activity: Activity = { id: uid("a"), type: "scan", productId: input.productId, message: "스캔한 옷을 옷장에 저장했어요", at };
+  setState({ ...state, closet: [entry, ...state.closet], activities: [activity, ...state.activities] });
 }
 
 export function removeFromCloset(entryId: string) {

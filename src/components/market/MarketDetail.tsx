@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { Calendar, ChevronRight, Info, Layers, Palette, Plus, Ruler, Share2, Tag } from "lucide-react";
 import { share } from "@/components/archive/DetailActions";
-import { Gallery } from "@/components/archive/Gallery";
+import { Gallery, type GalleryPhoto } from "@/components/archive/Gallery";
 import { CareGuideSection, StyleThroughTime } from "@/components/archive/StyleSections";
 import { LikeButton } from "@/components/product/LikeButton";
 import { DemoTag, buttonLinkClass } from "@/components/ui/primitives";
 import { VerificationBadge } from "@/components/verification/VerificationBadge";
 import { CATEGORY_LABEL, cx, josa, seasonLabel, won } from "@/lib/format";
 import { findListing } from "@/lib/listing";
+import { productHref } from "@/lib/product-links";
+import type { CurationMedia } from "@/data/demo-scan";
 import { useAppState } from "@/store/app-store";
 import type { CareGuide, Product } from "@/types";
 
@@ -18,7 +20,20 @@ import type { CareGuide, Product } from "@/types";
  * 제품 설명 · 빈티지 유형 · 스타일 · 관리 가이드는 공통 아카이브 콘텐츠를 쓰고,
  * 판매가 · 사이즈 · 상태 · 판매자만 판매 정보(listing)에서 가져온다.
  */
-export function MarketDetail({ product, care }: { product: Product; care: CareGuide }) {
+export function MarketDetail({
+  product,
+  care,
+  photos,
+  media,
+}: {
+  product: Product;
+  care: CareGuide;
+  /** 스캔한 옷 — 판매자가 직접 찍은 사진 (주어지면 일러스트를 쓰지 않는다) */
+  photos?: GalleryPhoto[];
+  /** 스캔한 옷의 큐레이션 자료 사진 */
+  media?: CurationMedia | null;
+}) {
+  const scanned = Boolean(photos);
   const { closet } = useAppState();
   const listing = findListing(product, closet);
   const categoryLabel = CATEGORY_LABEL[product.category];
@@ -29,7 +44,7 @@ export function MarketDetail({ product, care }: { product: Product; care: CareGu
         <p className="display text-[40px] text-faint">NOT ON SALE</p>
         <p className="mt-3 text-[15px] font-bold">판매 중인 상품이 아니에요</p>
         <p className="mt-1 text-[13px] text-sub">아카이브 상세에서 이 옷의 정보를 볼 수 있어요.</p>
-        <Link href={`/archive/${product.id}`} className={`${buttonLinkClass.dark} mt-6`}>
+        <Link href={productHref(product.id)} className={`${buttonLinkClass.dark} mt-6`}>
           아카이브 상세 보기
         </Link>
       </div>
@@ -72,7 +87,7 @@ export function MarketDetail({ product, care }: { product: Product; care: CareGu
 
       <div className="mt-6 grid gap-8 md:mt-8 md:grid-cols-[minmax(0,528fr)_minmax(0,544fr)] md:gap-16">
         <div className="-mx-5 md:mx-0">
-          <Gallery product={product} thumbnails />
+          <Gallery product={product} thumbnails photos={photos} />
           <p className="mx-5 mt-5 text-[13px] text-sub md:mx-0">판매자가 직접 스캔한 이미지입니다.</p>
         </div>
 
@@ -80,7 +95,7 @@ export function MarketDetail({ product, care }: { product: Product; care: CareGu
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex h-6 items-center bg-ink px-2 text-[11px] font-bold tracking-wide text-white">{product.collection}</span>
             {product.verification && <VerificationBadge status={product.verification.status} branded className="!h-6" />}
-            <DemoTag className="!h-6">DEMO DATA · 공식 인증 아님</DemoTag>
+            <DemoTag className="!h-6">{scanned ? "PROTOTYPE · 공식 인증 아님" : "DEMO DATA · 공식 인증 아님"}</DemoTag>
           </div>
 
           <h1 className="mt-8 text-[32px] font-bold leading-[1.15] tracking-[-0.035em] text-brand md:mt-11 md:text-[40px]">{product.name}</h1>
@@ -150,7 +165,14 @@ export function MarketDetail({ product, care }: { product: Product; care: CareGu
         </p>
       </section>
 
-      <StyleThroughTime categoryLabel={categoryLabel} className="mt-14 md:mt-[72px]" />
+      {/* 스캔한 옷은 자료 사진이 있을 때만 — 플레이스홀더를 보여 주지 않는다 */}
+      {(!scanned || media) && (
+        <StyleThroughTime
+          categoryLabel={categoryLabel}
+          media={media ? { then: media.styleThen, now: media.styleNow } : null}
+          className="mt-14 md:mt-[72px]"
+        />
+      )}
 
       <CareGuideSection care={care} className="mt-14 md:mt-20" />
 

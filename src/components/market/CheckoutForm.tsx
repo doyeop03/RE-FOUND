@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { buttonLinkClass } from "@/components/ui/primitives";
 import { Consent, Field, Segmented, inputClass } from "@/components/ui/Form";
 import { won } from "@/lib/format";
+import { productHref } from "@/lib/product-links";
 import { findListing, shippingFeeOf } from "@/lib/listing";
 import { useAppState } from "@/store/app-store";
 import type { Product } from "@/types";
@@ -132,7 +133,7 @@ export function CheckoutForm({ product }: { product: Product }) {
             {won(total)}원 결제하기 · 시연
           </button>
           <Link
-            href={`/market/${product.id}`}
+            href={productHref(product.id, "market")}
             className="mt-6 inline-flex h-[52px] w-full items-center justify-center border border-[#cfcfcf] text-[16px] transition-colors hover:border-ink"
           >
             상품 상세로 돌아가기

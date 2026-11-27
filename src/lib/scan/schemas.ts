@@ -153,3 +153,60 @@ export const StorySchema = z.object({
   blocks: z.array(z.object({ title: z.string(), body: z.string(), source_ids: z.array(z.string()) })),
 });
 export type StoryOut = z.infer<typeof StorySchema>;
+
+/* ───────── 큐레이션 (프로토타입: 유니클로 상품 DB 역할을 Gemini 가 대신한다) ───────── */
+
+export const CURATION_CATEGORIES = ["outer", "fleece", "knit", "shirt", "tee", "pants"] as const;
+export const CURATION_FABRICS = ["fleece", "wool", "denim", "cotton", "knit", "nylon"] as const;
+
+const Score = z.object({ score: z.number(), reason: z.string() });
+
+export const CurationSchema = z.object({
+  product: z.object({
+    name: z.string(),
+    name_ko: z.string(),
+    card_label: z.string(),
+    category: z.enum(CURATION_CATEGORIES),
+    collection: z.string(),
+    collab_partner: z.string().nullable(),
+    release_year: z.number(),
+    release_term: z.enum(["S/S", "F/W"]),
+    material: z.string(),
+    fit: z.string(),
+    color_name: z.string(),
+    description: z.string(),
+  }),
+  evaluation: z.object({ era: Score, scarcity: Score, design: Score, demand: Score, condition: Score }),
+  scarcity: z.object({
+    production_scale: z.enum(["limited", "small", "standard", "mass"]),
+    production_note: z.string(),
+    discontinued: z.boolean(),
+    reissued: z.boolean(),
+  }),
+  condition: z.object({ label: z.string(), notes: z.array(z.string()) }),
+  market: z.object({
+    low: z.number(),
+    high: z.number(),
+    listings: z.number(),
+    trend: z.enum(["up", "flat", "down"]),
+  }),
+  story: z.object({
+    headline: z.string(),
+    sections: z.array(z.object({ title: z.string(), body: z.string() })),
+  }),
+  care: z.object({
+    material: z.array(z.string()),
+    washing: z.array(z.string()),
+    storage: z.array(z.string()),
+    tips: z.array(z.string()),
+  }),
+  garment: z.object({
+    kind: z.enum(["top", "pants"]),
+    color_hex: z.string(),
+    fabric: z.enum(CURATION_FABRICS),
+    collar: z.enum(["stand", "shirt", "crew", "lapel", "none"]),
+    front: z.enum(["zip", "halfzip", "buttons", "none"]),
+    sleeve: z.enum(["long", "short"]),
+  }),
+});
+export type Curation = z.infer<typeof CurationSchema>;

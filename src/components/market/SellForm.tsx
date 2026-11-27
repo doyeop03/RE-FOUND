@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { buttonLinkClass } from "@/components/ui/primitives";
 import { Consent, Field, Segmented, inputClass } from "@/components/ui/Form";
 import { LISTINGS } from "@/data/listings";
+import { productHref } from "@/lib/product-links";
 import { won } from "@/lib/format";
 import { DEAL_METHOD_LABEL, DEFAULT_SHIPPING } from "@/lib/listing";
 import { registerResale, useAppState } from "@/store/app-store";
@@ -75,7 +76,7 @@ export function SellForm({ product }: { product: Product }) {
       },
     });
     toast("판매 등록을 마쳤어요");
-    router.push(`/sell/${product.id}/done`);
+    router.push(productHref(product.id, "sellDone"));
   };
 
   const preview = [
@@ -171,7 +172,7 @@ export function SellForm({ product }: { product: Product }) {
             <button type="submit" className={`${buttonLinkClass.primary} !font-medium`}>
               확인하고 판매 등록하기
             </button>
-            <Link href={`/archive/${product.id}`} className="inline-flex h-14 items-center justify-center border border-[#cfcfcf] text-[16px] font-bold transition-colors hover:border-ink">
+            <Link href={productHref(product.id)} className="inline-flex h-14 items-center justify-center border border-[#cfcfcf] text-[16px] font-bold transition-colors hover:border-ink">
               상태 스캔 결과로 돌아가기
             </Link>
           </div>

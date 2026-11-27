@@ -1,4 +1,4 @@
-import type { CompareResult, DescriptionOut, GarmentAnalysis, ShotReview, StoryOut, Target } from "./schemas";
+import type { CompareResult, Curation, DescriptionOut, GarmentAnalysis, ShotReview, StoryOut, Target } from "./schemas";
 
 /**
  * 카메라 UI 와 AI 분석 로직 사이의 경계.
@@ -27,6 +27,7 @@ export interface ShotReviewer {
   readonly model: string;
   reviewShot(input: ShotInput, signal?: AbortSignal): Promise<ShotReview>;
   analyzeGarment(images: AnalysisImage[], signal?: AbortSignal): Promise<GarmentAnalysis>;
+  curateGarment(images: AnalysisImage[], analysis: GarmentAnalysis, signal?: AbortSignal): Promise<Curation>;
   compareWithReference(user: Blob, reference: Blob, candidateName: string, signal?: AbortSignal): Promise<CompareResult>;
   writeDescription(facts: Record<string, unknown>, observations: Record<string, unknown>, signal?: AbortSignal): Promise<DescriptionOut["lines"]>;
   writeStory(product: Record<string, unknown>, sources: { id: string; scope: string; excerpt: string; publisher: string }[], signal?: AbortSignal): Promise<StoryOut["blocks"]>;
