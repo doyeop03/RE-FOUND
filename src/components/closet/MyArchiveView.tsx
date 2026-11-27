@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { GarmentImage } from "@/components/garment/GarmentImage";
 import { ProductCard } from "@/components/product/ProductCard";
-import { RarityBadge, buttonLinkClass } from "@/components/ui/primitives";
+import { buttonLinkClass } from "@/components/ui/primitives";
 import { cx, dateLabel, seasonLabel, won } from "@/lib/format";
 import {
   logActivity,
@@ -74,7 +74,7 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
   const byId = (id: string) => products.find((p) => p.id === id);
   const collectedIds = new Set(closet.map((e) => e.productId));
   const collected = products.filter((p) => collectedIds.has(p.id));
-  const rareCount = collected.filter((p) => p.rarity.grade === "S" || p.rarity.grade === "A").length;
+  const typeCount = new Set(collected.map((p) => p.archiveType.label)).size;
 
   const found = closet.filter((e) => e.ownership === "found");
   const owned = closet.filter((e) => e.ownership === "owned");
@@ -96,19 +96,19 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
     if (!product) return null;
     return (
       <li key={entry.id} className="border border-line bg-white">
-        <Link href={`/archive/${product.id}`} className="group block">
+        <Link href={entry.selling ? `/market/${product.id}` : `/archive/${product.id}`} className="group block">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="text-[11px] font-bold tracking-[0.1em]">
               No. {String(index + 1).padStart(3, "0")}
             </span>
-            <span className={cx("text-[11px] font-bold", entry.ownership === "found" ? "text-brand" : "text-ink")}>
+            <span className="text-[11px] font-bold text-brand">
               {entry.ownership === "found" ? "FOUND · 발견" : "OWNED · 소유"}
             </span>
           </div>
           <div className="relative aspect-square bg-paper">
             <GarmentImage spec={product.garment} label={product.nameKo} className="h-full w-full p-[8%] transition-transform duration-300 group-hover:scale-[1.04]" />
-            <span className="absolute left-2 top-2">
-              <RarityBadge grade={product.rarity.grade} />
+            <span className="absolute left-2 top-3 inline-flex h-[22px] min-w-[45%] items-center bg-ink px-1.5 text-[10px] font-bold text-white">
+              {product.archiveType.label}
             </span>
             {entry.selling && (
               <span className="absolute bottom-2 left-2 bg-ink px-1.5 py-1 text-[11px] font-bold text-white">
@@ -125,7 +125,7 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
                 <dd className="font-semibold">{dateLabel(entry.addedAt)}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-faint">상태</dt>
+                <dt className="text-faint">보존성</dt>
                 <dd className="font-semibold">{entry.conditionLabel}</dd>
               </div>
               {entry.place && (
@@ -137,7 +137,7 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
             </dl>
           </div>
         </Link>
-        <div className="flex border-t border-line">
+        <div className="flex">
           {entry.selling ? (
             <button
               type="button"
@@ -145,7 +145,7 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
                 stopSelling(entry.id);
                 toast("판매를 중단했어요");
               }}
-              className="h-11 flex-1 text-[12px] font-semibold hover:bg-paper"
+              className="h-[52px] flex-1 border border-line text-[15px] hover:bg-paper"
             >
               판매 중단
             </button>
@@ -157,7 +157,7 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
                 toast("착용 기록을 남겼어요", { label: "기록 보기", href: "/my?tab=log" });
                 setTab("log");
               }}
-              className="h-11 flex-1 text-[12px] font-semibold hover:bg-paper"
+              className="h-[52px] flex-1 border border-line text-[15px] hover:bg-paper"
             >
               착용 기록 남기기
             </button>
@@ -169,9 +169,9 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
               removeFromCloset(entry.id);
               toast("옷장에서 삭제했어요");
             }}
-            className="flex h-11 w-11 items-center justify-center border-l border-line text-sub hover:bg-paper hover:text-brand"
+            className="flex h-[52px] w-11 items-center justify-center text-sub hover:bg-paper hover:text-brand"
           >
-            <Trash2 size={15} />
+            <Trash2 size={15} strokeWidth={1.6} />
           </button>
         </div>
       </li>
@@ -188,14 +188,14 @@ function MyArchiveInner({ products, search }: { products: Product[]; search: str
       <dl className="mt-6 grid grid-cols-3 border-l border-t border-ink">
         {[
           ["수집한 아카이브", `${collected.length}`, `/ ${products.length}종`],
-          ["희귀도 A 이상", `${rareCount}`, "종"],
+          ["발견한 빈티지 유형", `${typeCount}`, "종"],
           ["사용 기록", `${activities.length}`, "건"],
         ].map(([label, value, unit]) => (
-          <div key={label} className="border-b border-r border-ink p-3 md:p-5">
+          <div key={label} className="border-b border-r border-ink p-3 md:px-5 md:pb-4 md:pt-7">
             <dt className="text-[11px] text-sub md:text-[13px]">{label}</dt>
             <dd className="mt-1">
-              <span className="display text-[32px] md:text-[48px]">{value}</span>
-              <span className="ml-1 text-[11px] text-sub md:text-[13px]">{unit}</span>
+              <span className="text-[32px] font-bold leading-none md:text-[48px]">{value}</span>
+              <span className="ml-1.5 text-[11px] text-sub md:text-[13px]">{unit}</span>
             </dd>
           </div>
         ))}

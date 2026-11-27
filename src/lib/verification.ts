@@ -101,6 +101,7 @@ export function toCertificate(product: Product): CertificateData | null {
     collection: certificateCollection(product.collection),
     rarityGrade: product.rarity.grade,
     rarityLabel: RARITY_LABEL[product.rarity.grade],
+    vintageType: product.archiveType.label,
     verifiedAt: v.verifiedAt,
     items: CERTIFICATE_ITEMS.map((item) => {
       const checks = v.checks.filter((c) => item.from.includes(c.key));

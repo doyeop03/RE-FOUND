@@ -84,6 +84,25 @@ export async function encodeCapture(src: Drawable): Promise<{ blob: Blob; width:
   return { blob, width: W, height: H, quality };
 }
 
+/** 자동 촬영 판단용 — 비디오 프레임을 작게 그려 품질과 흔들림(이전 프레임과의 평균 밝기 차)을 잰다. 인코딩은 하지 않는다 */
+export function sampleFrame(video: HTMLVideoElement, prev: Float32Array | null): { quality: ImageQuality; gray: Float32Array; motion: number } | null {
+  const { w, h } = sizeOf(video);
+  if (!w || !h) return null;
+  const qw = 320;
+  const qh = Math.max(1, Math.round((h / w) * qw));
+  const { ctx } = canvasOf(qw, qh);
+  ctx.drawImage(video, 0, 0, qw, qh);
+  const rgba = ctx.getImageData(0, 0, qw, qh).data;
+  const quality = assessQuality(rgba, qw, qh);
+  const gray = new Float32Array(qw * qh);
+  let diff = 0;
+  for (let i = 0; i < gray.length; i += 1) {
+    gray[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+    if (prev && prev.length === gray.length) diff += Math.abs(gray[i] - prev[i]);
+  }
+  return { quality, gray, motion: prev && prev.length === gray.length ? diff / gray.length : Infinity };
+}
+
 /** 갤러리에서 고른 파일 → 같은 처리 (EXIF 회전 반영) */
 export async function encodeFile(file: File) {
   if (!file.type.startsWith("image/")) throw new Error("이미지 파일만 사용할 수 있습니다.");

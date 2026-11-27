@@ -22,17 +22,17 @@ export default async function NearbyPage() {
         <NearbyView shops={shops} />
       </div>
 
-      <section className="mt-12 flex flex-col gap-4 bg-ink p-6 text-white md:mt-16 md:flex-row md:items-center md:justify-between md:p-10">
+      <section className="mt-12 flex flex-col gap-5 bg-ink p-6 text-white md:mt-[60px] md:flex-row md:items-center md:justify-between md:px-10 md:py-11">
         <div>
           <p className="eyebrow text-white/60">In-Store Guide</p>
-          <p className="mt-2 text-[22px] font-extrabold leading-snug tracking-[-0.03em] md:text-[30px]">
-            행거에서 익숙한 라벨을 발견했다면,
+          <p className="mt-3 text-[22px] font-bold leading-snug tracking-[-0.03em] md:text-[28px]">
+            빈티지 숍에서 구매한 유니클로,
             <br />
-            그 자리에서 가치를 확인해 보세요.
+            어떤 이야기를 간직하고 있을까요?
           </p>
         </div>
-        <Link href="/scan" className={`${buttonLinkClass.primary} md:min-w-[220px]`}>
-          <ScanLine size={18} /> 지금 스캔하기
+        <Link href="/scan" className={`${buttonLinkClass.primary} md:min-w-[248px]`}>
+          <ScanLine size={18} /> 구매한 옷 스캔하기
         </Link>
       </section>
 

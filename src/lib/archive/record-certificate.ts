@@ -25,6 +25,7 @@ export function recordToCertificate(record: ArchiveRecord): CertificateData | nu
     collection: record.collection.value ?? "컬렉션 미확인",
     rarityGrade: record.rarity.grade,
     rarityLabel: record.rarity.status === "graded" ? `${record.rarity.score}/100` : "판정 자료 부족",
+    vintageType: record.vintageType?.label ?? null,
     verifiedAt: v.date ?? record.createdAt.slice(0, 10),
     dateLabel: v.level === "verified" ? "검증일" : v.level === "archive_matched" ? "확인일" : "분석일",
     items: [

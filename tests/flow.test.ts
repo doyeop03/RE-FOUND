@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_ATTEMPTS,
   MAX_EXTRA_STEPS,
+  addManualStep,
   applyShot,
   createFlow,
   currentStepIndex,
@@ -9,6 +10,7 @@ import {
   decideFromReview,
   forceAccept,
   isCaptureDone,
+  reopenStep,
   skipStep,
 } from "@/lib/scan/flow";
 import { reviewFixture } from "./fixtures";
@@ -46,10 +48,13 @@ describe("촬영 단계 상태 머신", () => {
     expect(f.steps[0].acceptedImageId).toBe(`f${MAX_ATTEMPTS - 1}`);
   });
 
-  it("AI 요청 부위는 중복 없이 기본 단계 뒤에 추가되고 총 개수가 제한된다", () => {
+  it("AI 요청 부위는 중복 없이 요청한 단계 바로 뒤에 추가되고 총 개수가 제한된다", () => {
     const req = (target: "right_sleeve" | "zipper" | "hem" | "collar" | "pocket" | "shoulder") => ({ target, reason_ko: "마모 의심", instruction_ko: "가까이 촬영해주세요" });
     let f = applyShot(createFlow(), "base-1", "i1", accept, reviewFixture({ detail_requests: [req("right_sleeve"), req("zipper")] }));
-    expect(f.steps.map((s) => s.target)).toEqual(["front_full", "back_full", "care_label", "right_sleeve", "zipper"]);
+    expect(f.steps.map((s) => s.target)).toEqual(["front_full", "right_sleeve", "zipper", "back_full", "care_label"]);
+    expect(f.steps[currentStepIndex(f)].target).toBe("right_sleeve");
+    f = applyShot(f, "extra-1", "e1", accept, reviewFixture());
+    f = applyShot(f, "extra-2", "e2", accept, reviewFixture());
     f = applyShot(f, "base-2", "i2", accept, reviewFixture({ detail_requests: [req("right_sleeve"), req("hem")] }));
     f = applyShot(f, "base-3", "i3", accept, reviewFixture({ detail_requests: [req("collar"), req("pocket")] }));
     f = applyShot(f, "extra-1", "i4", accept, reviewFixture({ detail_requests: [req("shoulder")] }));
@@ -63,6 +68,32 @@ describe("촬영 단계 상태 머신", () => {
     f = skipStep(f, "base-2");
     f = applyShot(f, "base-3", "i3", accept, reviewFixture());
     expect(isCaptureDone(f)).toBe(true);
+  });
+});
+
+describe("촬영 결과 확인 화면", () => {
+  const done = () => {
+    let f = createFlow();
+    for (const [id, img] of [["base-1", "i1"], ["base-2", "i2"], ["base-3", "i3"]]) f = applyShot(f, id, img, accept, null);
+    return f;
+  };
+
+  it("재촬영하면 그 단계만 다시 촬영 대기가 되고, 다시 찍으면 확인 화면으로 돌아갈 수 있다", () => {
+    let f = reopenStep(done(), "base-2");
+    expect(currentStepIndex(f)).toBe(1);
+    expect(f.steps[1].acceptedImageId).toBeNull();
+    expect(f.steps[1].imageIds).toEqual(["i2"]);
+    f = applyShot(f, "base-2", "i4", accept, null);
+    expect(isCaptureDone(f)).toBe(true);
+    expect(f.steps[1].acceptedImageId).toBe("i4");
+  });
+
+  it("손상 부위를 직접 추가하면 맨 뒤에 사용자 추가 단계가 붙는다", () => {
+    const f = addManualStep(done());
+    const last = f.steps.at(-1)!;
+    expect(last).toMatchObject({ kind: "extra", manual: true, status: "pending" });
+    expect(currentStepIndex(f)).toBe(f.steps.length - 1);
+    expect(addManualStep(f).steps.at(-1)!.id).not.toBe(last.id);
   });
 });
 

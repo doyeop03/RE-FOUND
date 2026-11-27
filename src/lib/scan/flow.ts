@@ -4,7 +4,8 @@ import type { ImageQuality } from "./image";
 /**
  * 촬영 단계 상태 머신 (순수 함수 · tests/flow.test.ts).
  *
- * STEP 1 앞면 → STEP 2 뒷면 → STEP 3 케어라벨 → STEP 4 AI가 요청한 추가 부위 → STEP 5 최종 분석
+ * STEP 1 앞면 → STEP 2 뒷면 → STEP 3 케어라벨 → 최종 분석
+ * AI가 추가 부위를 요청하면 그 사진을 찍은 단계 바로 다음에 끼워 넣는다 (예: 앞면 → 오른쪽 소매 → 뒷면 …)
  *
  * - 사진마다 결정(accept / retake)을 받아 다음 단계로 가거나 같은 단계에 머문다.
  * - 한 단계의 촬영은 최대 MAX_ATTEMPTS 번. 넘으면 '확인되지 않음(unverified)'으로 두고 넘어간다.
@@ -35,6 +36,8 @@ export interface FlowStep {
   reviewed: boolean;
   requestedBy?: string;
   reason?: string;
+  /** 사용자가 확인 화면에서 직접 추가한 손상 부위 */
+  manual?: boolean;
 }
 
 export interface FlowState {
@@ -208,8 +211,44 @@ export function addRequestedSteps(state: FlowState, review: ShotReview, imageId:
   }
   if (!extras.length) return state;
 
-  // 기본 단계(앞 · 뒤 · 라벨)는 처음부터 앞에 있으므로, 뒤에 붙이면 항상 기본 단계가 끝난 다음 차례가 된다
-  return { steps: [...steps, ...extras], extrasAdded };
+  // 요청한 사진의 단계 바로 다음에 끼워 넣는다 — 추가 부위를 차례대로 찍은 뒤 다음 기본 단계로 넘어간다
+  const at = steps.findIndex((s) => s.imageIds.includes(imageId));
+  const pos = at === -1 ? steps.length : at + 1;
+  return { steps: [...steps.slice(0, pos), ...extras, ...steps.slice(pos)], extrasAdded };
+}
+
+/** 확인 화면의 '재촬영' — 그 단계만 다시 촬영 대기로 되돌린다 (이전 사진 기록은 남긴다) */
+export function reopenStep(state: FlowState, stepId: string): FlowState {
+  return patch(state, stepId, (s) => ({
+    ...s,
+    status: "pending",
+    attempts: 0,
+    acceptedImageId: null,
+    reviewed: false,
+    message: null,
+  }));
+}
+
+/** 확인 화면의 '손상 부위 추가 촬영' — 맨 뒤에 사용자 추가 단계를 붙인다 */
+export function addManualStep(state: FlowState): FlowState {
+  const extrasAdded = state.extrasAdded + 1;
+  const step: FlowStep = {
+    id: `extra-${extrasAdded}`,
+    target: "other",
+    kind: "extra",
+    title: "손상 부위 추가 촬영",
+    guide: "손상이 의심되는 부위를 주변 원단과 함께 가까이 보여주세요.",
+    required: false,
+    attempts: 0,
+    status: "pending",
+    message: null,
+    imageIds: [],
+    acceptedImageId: null,
+    reviewed: false,
+    reason: "직접 추가",
+    manual: true,
+  };
+  return { steps: [...state.steps, step], extrasAdded };
 }
 
 export function acceptedImages(state: FlowState) {

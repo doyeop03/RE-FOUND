@@ -33,6 +33,8 @@ export interface Season {
   term: "S/S" | "F/W";
   /** 공식 자료로 확인되지 않은 추정값 여부 */
   estimated: boolean;
+  /** 표시용 시즌 문구 (예: 2000s, 1994 S/S(시연용 가정)) — 있으면 연도 · 시즌 대신 그대로 보여 준다 */
+  label?: string;
 }
 
 export type ProductionScale = "limited" | "small" | "standard" | "mass";
@@ -97,6 +99,8 @@ export interface Provenance {
 export interface ProductBase {
   id: string;
   name: string;
+  /** 발견하기 카드 위쪽의 분류 라벨 (예: FLEECE, DENIM) — 없으면 컬렉션명 */
+  cardLabel?: string;
   nameKo: string;
   category: Category;
   collection: string;
@@ -185,6 +189,8 @@ export interface CertificateData {
   /** 판정 자료가 부족하면 null */
   rarityGrade: RarityGrade | null;
   rarityLabel: string;
+  /** 빈티지 유형 (Figma 인증서 뒷면) — 정하지 못했으면 null → 희귀도 칸을 대신 보여 준다 */
+  vintageType?: string | null;
   verifiedAt: string;
   /** "검증일" | "확인일" | "분석일" */
   dateLabel: string;
@@ -244,6 +250,34 @@ export interface Shop {
 
 export type Ownership = "found" | "owned";
 
+/* ───────── 판매 · 구매 (Figma 09 ~ 12) ───────── */
+
+/** parcel: 택배 배송 · direct: 직거래 */
+export type DealMethod = "parcel" | "direct";
+
+/** 판매자가 직접 적는 거래 정보 — 제품 설명 · 스타일 자료는 공통 아카이브 콘텐츠를 쓴다 */
+export interface ListingTerms {
+  size: string;
+  method: DealMethod;
+  /** 배송 조건 안내 (예: 배송비 3,000원 · 결제 후 2일 이내 발송) */
+  shipping: string;
+  shippingFee: number;
+  /** 추가 하자 · 전달 사항 */
+  note?: string;
+}
+
+export interface Listing extends ListingTerms {
+  productId: string;
+  price: number;
+  conditionLabel: string;
+  /** 판매 상품의 상태 요약 (예: 소매 끝에 가벼운 보풀) */
+  conditionNote: string;
+  seller: string;
+  status: "on_sale" | "sold_out";
+  /** 이 기기에서 내가 등록한 판매 */
+  mine: boolean;
+}
+
 export interface ClosetEntry {
   id: string;
   productId: string;
@@ -253,6 +287,8 @@ export interface ClosetEntry {
   selling: boolean;
   askingPrice?: number;
   place?: string;
+  /** 판매 정보 작성(Figma 10)에서 적은 거래 조건 */
+  listing?: ListingTerms;
 }
 
 export type ActivityType =

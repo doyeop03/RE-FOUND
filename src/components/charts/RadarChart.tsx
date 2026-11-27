@@ -2,12 +2,13 @@ import type { EvalKey, Product } from "@/types";
 
 export const EVAL_ORDER: EvalKey[] = ["era", "scarcity", "design", "condition", "demand"];
 
+/** Figma 05 — 다섯 가지 가치 (시계 방향: 시대성 · 서사성 · 대표성 · 보존성 · 수요성) */
 export const EVAL_LABEL: Record<EvalKey, string> = {
   era: "시대성",
-  scarcity: "희소성",
-  design: "디자인 가치",
-  demand: "수요",
-  condition: "상태",
+  scarcity: "서사성",
+  design: "대표성",
+  demand: "수요성",
+  condition: "보존성",
 };
 
 const CX = 150;
@@ -44,18 +45,18 @@ export function RadarChart({ evaluation }: { evaluation: Product["evaluation"] }
         return <line key={k} x1={CX} y1={CY} x2={x} y2={y} stroke="#e6e6e6" />;
       })}
       <g className="origin-[150px_140px] animate-rise">
-        <polygon points={polygon(ratios)} fill="rgba(230,0,18,0.14)" stroke="#E60012" strokeWidth="2" strokeLinejoin="round" />
+        <polygon points={polygon(ratios)} fill="rgba(230,0,18,0.13)" stroke="#E60012" strokeWidth="2" strokeLinejoin="round" />
         {ratios.map((r, i) => {
           const [x, y] = point(i, r);
-          return <circle key={i} cx={x} cy={y} r="3.5" fill="#E60012" />;
+          return <circle key={i} cx={x} cy={y} r="4" fill="#E60012" />;
         })}
       </g>
       {EVAL_ORDER.map((k, i) => {
-        const [x, y] = point(i, 1.24);
+        const [x, y] = point(i, 1.2);
         return (
-          <text key={k} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize="12" fontWeight="600" fill="#111">
+          <text key={k} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize="11" fontWeight="700" fill="#111">
             {EVAL_LABEL[k]}
-            <tspan dx="4" fill="#E60012" fontWeight="800">
+            <tspan fill="#E60012" fontWeight="700">
               {evaluation[k].score}
             </tspan>
           </text>

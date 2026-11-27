@@ -5,6 +5,7 @@ import type {
   Activity,
   ActivityType,
   ClosetEntry,
+  ListingTerms,
   Ownership,
 } from "@/types";
 
@@ -48,7 +49,7 @@ const SEED: AppState = {
       addedAt: "2026-10-18",
       conditionLabel: "양호",
       selling: true,
-      askingPrice: 15000,
+      askingPrice: 30000,
     },
   ],
   likes: ["plusj-09-coat", "ut-03-graphic"],
@@ -204,6 +205,7 @@ export function registerResale(input: {
   productId: string;
   askingPrice: number;
   conditionLabel: string;
+  listing?: ListingTerms;
 }) {
   const existing = state.closet.find((e) => e.productId === input.productId);
   const closet = existing
@@ -214,6 +216,7 @@ export function registerResale(input: {
               ownership: "owned" as const,
               selling: true,
               askingPrice: input.askingPrice,
+              listing: input.listing ?? e.listing,
             }
           : e,
       )
@@ -226,6 +229,7 @@ export function registerResale(input: {
           conditionLabel: input.conditionLabel,
           selling: true,
           askingPrice: input.askingPrice,
+          listing: input.listing,
         },
         ...state.closet,
       ];
@@ -243,7 +247,7 @@ export function stopSelling(entryId: string) {
   setState({
     ...state,
     closet: state.closet.map((e) =>
-      e.id === entryId ? { ...e, selling: false, askingPrice: undefined } : e,
+      e.id === entryId ? { ...e, selling: false, askingPrice: undefined, listing: undefined } : e,
     ),
   });
 }

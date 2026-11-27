@@ -11,7 +11,7 @@ import { toast } from "@/store/toast-store";
 import type { Product, ServiceType } from "@/types";
 import { ServiceModal } from "./ServiceModal";
 
-async function share(product: Product) {
+export async function share(product: Product) {
   const url = window.location.href;
   try {
     if (navigator.share) {
@@ -25,8 +25,8 @@ async function share(product: Product) {
   }
 }
 
-/** 상단 액션: 저장 / 찜 / 공유 + 모바일 하단 고정 바 */
-export function PrimaryActions({ product }: { product: Product }) {
+/** 상단 액션: 저장 / 찜 / 공유 + 모바일 하단 고정 바 (desktop=false 면 모바일 바만) */
+export function PrimaryActions({ product, desktop = true }: { product: Product; desktop?: boolean }) {
   const { closet } = useAppState();
   const [open, setOpen] = useState(false);
   const saved = closet.some((e) => e.productId === product.id);
@@ -45,7 +45,7 @@ export function PrimaryActions({ product }: { product: Product }) {
 
   return (
     <>
-      <div className="hidden items-center gap-2 md:flex">
+      <div className={desktop ? "hidden items-center gap-2 md:flex" : "hidden"}>
         {saveButton}
         <LikeButton productId={product.id} className="!h-[52px] !w-[52px] border border-line" />
         <button type="button" aria-label="공유" onClick={() => share(product)} className="flex h-[52px] w-[52px] items-center justify-center border border-line">
@@ -95,14 +95,11 @@ export function ServiceSection({ product }: { product: Product }) {
   const [type, setType] = useState<ServiceType | null>(null);
   return (
     <>
-      <ul className="grid gap-px border border-line bg-line md:grid-cols-3">
-        {SERVICES.map((s) => (
-          <li key={s.type} className="bg-white">
-            <button
-              type="button"
-              onClick={() => setType(s.type)}
-              className="group flex h-full w-full items-start gap-4 p-5 text-left transition-colors hover:bg-brand-tint md:flex-col md:p-6"
-            >
+      <ul className="grid gap-px border border-brand bg-line md:grid-cols-3">
+        {SERVICES.map((s) => {
+          const className = "group flex h-full w-full items-start gap-4 p-5 text-left transition-colors hover:bg-brand-tint md:flex-col md:p-6";
+          const inner = (
+            <>
               <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-ink text-white transition-colors group-hover:bg-brand">
                 <s.icon size={20} />
               </span>
@@ -113,9 +110,23 @@ export function ServiceSection({ product }: { product: Product }) {
                   {s.cta} <ArrowRight size={14} />
                 </span>
               </span>
-            </button>
-          </li>
-        ))}
+            </>
+          );
+          return (
+            <li key={s.type} className="bg-white">
+              {/* 재판매는 판매 정보 작성 화면(Figma 10)으로, 클리닝 · 수선은 신청 모달로 */}
+              {s.type === "resale" ? (
+                <Link href={`/sell/${product.id}`} className={className}>
+                  {inner}
+                </Link>
+              ) : (
+                <button type="button" onClick={() => setType(s.type)} className={className}>
+                  {inner}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
       <ServiceModal type={type} onClose={() => setType(null)} product={product} />
     </>

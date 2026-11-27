@@ -13,7 +13,8 @@ const VIEWS: { view: GarmentView; label: string }[] = [
   { view: "detail", label: "소재" },
 ];
 
-export function Gallery({ product }: { product: Product }) {
+/** thumbnails — 아래에 부위별 썸네일 줄 (Figma 09 구매 상세) */
+export function Gallery({ product, thumbnails = false }: { product: Product; thumbnails?: boolean }) {
   const [index, setIndex] = useState(0);
   const [touchX, setTouchX] = useState<number | null>(null);
   const go = (delta: number) => setIndex((i) => (i + delta + VIEWS.length) % VIEWS.length);
@@ -23,7 +24,7 @@ export function Gallery({ product }: { product: Product }) {
   return (
     <div>
       <div
-        className="relative aspect-square overflow-hidden bg-paper md:aspect-[4/5]"
+        className="relative aspect-[4/5] overflow-hidden bg-paper"
         onTouchStart={(e) => setTouchX(e.touches[0].clientX)}
         onTouchEnd={(e) => {
           if (touchX === null) return;
@@ -52,23 +53,27 @@ export function Gallery({ product }: { product: Product }) {
           일러스트 플레이스홀더
         </span>
       </div>
-      <div className="mt-2 grid grid-cols-4 gap-2">
-        {VIEWS.map((v, i) => (
-          <button
-            key={v.view}
-            type="button"
-            aria-label={`${v.label} 보기`}
-            aria-pressed={i === index}
-            onClick={() => setIndex(i)}
-            className={cx(
-              "aspect-square overflow-hidden bg-paper outline-offset-[-2px]",
-              i === index ? "outline outline-2 outline-ink" : "opacity-70 hover:opacity-100",
-            )}
-          >
-            <GarmentImage spec={product.garment} view={v.view} label={v.label} className={cx("h-full w-full", v.view === "front" || v.view === "back" ? "p-1.5" : "")} />
-          </button>
-        ))}
-      </div>
+      {thumbnails && (
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {VIEWS.map((v, i) => (
+            <button
+              key={v.view}
+              type="button"
+              aria-label={`${v.label} 보기`}
+              aria-pressed={i === index}
+              onClick={() => setIndex(i)}
+              className={cx("aspect-square overflow-hidden bg-paper outline-offset-[-2px]", i === index ? "outline outline-2 outline-ink" : "hover:opacity-85")}
+            >
+              <GarmentImage
+                spec={product.garment}
+                view={v.view}
+                label={v.label}
+                className={cx("h-full w-full", v.view === "front" || v.view === "back" ? "p-2" : "")}
+              />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

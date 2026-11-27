@@ -1,3 +1,4 @@
+import { VINTAGE_TYPE } from "./vintage-types";
 import type { MarketData, ProductBase, StorySection } from "@/types";
 
 /**
@@ -70,12 +71,13 @@ const DEMO_PROVENANCE = {
 export const PRODUCTS: ProductBase[] = [
   {
     id: "fleece-98-zip",
-    name: "'98 Fleece Jacket",
-    nameKo: "플리스 집업 재킷",
+    name: "Old UNIQLO Fleece Jacket",
+    cardLabel: "FLEECE",
+    nameKo: "올드 유니클로 보아 플리스 재킷",
     category: "fleece",
     collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 1998, term: "F/W", estimated: true },
+    season: { year: 2001, term: "F/W", estimated: false, label: "2001 F/W" },
     material: "폴리에스터 100%",
     fit: "레귤러",
     color: { name: "네이비", others: "외 3종" },
@@ -91,11 +93,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "1990년대 후반 플리스 붐을 상징하는 초기형 집업 재킷. 일상복에 기능성을 더한 유니클로 플리스의 출발점으로 꼽히는 모델입니다.",
-    archiveType: {
-      label: "시대 아카이브형",
-      en: "Era Archive",
-      desc: "특정 시기의 브랜드 전략과 디자인을 잘 보여 주는, 시대적 의미가 큰 제품",
-    },
+    archiveType: VINTAGE_TYPE.era,
     evaluation: {
       era: { score: 5, reason: "플리스 대중화 시기를 대표하는 모델" },
       scarcity: { score: 4, reason: "판매량은 많았지만 현존 개체는 적음" },
@@ -114,7 +112,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "양호",
       notes: ["소매 끝 가벼운 보풀", "지퍼 작동 정상", "변색·얼룩 없음"],
     },
-    market: market(45000, 68000, 9, UP),
+    market: market(17000, 27000, 9, UP),
     story: story(
       "ARCHIVE STORY",
       "플리스의 시작, 1998",
@@ -139,12 +137,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "plusj-09-coat",
-    name: "+J Wool Chesterfield Coat",
-    nameKo: "울 체스터필드 코트",
+    name: "Old Uniqlo Italian Cotton Jacket",
+    cardLabel: "JACKET",
+    nameKo: "올드 유니클로 이탈리안 코튼 재킷",
     category: "outer",
-    collection: "+J",
-    collab: { partner: "+J", note: "디자이너 협업 컬렉션" },
-    season: { year: 2009, term: "F/W", estimated: true },
+    collection: "UNIQLO Archive",
+    collab: null,
+    season: { year: 2000, term: "S/S", estimated: false, label: "2000s" },
     material: "울 90% · 캐시미어 10%",
     fit: "슬림",
     color: { name: "차콜" },
@@ -159,11 +158,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "절제된 테일러링으로 알려진 협업 컬렉션의 초기 코트. 날렵한 어깨선과 좁은 라펠이 컬렉션의 성격을 분명하게 보여 줍니다.",
-    archiveType: {
-      label: "협업 컬렉터블형",
-      en: "Collab Collectible",
-      desc: "한정 판매된 협업 제품으로, 수집 가치가 높게 평가되는 제품",
-    },
+    archiveType: VINTAGE_TYPE.icon,
     evaluation: {
       era: { score: 5, reason: "디자이너 협업 흐름의 전환점" },
       scarcity: { score: 5, reason: "한정 수량에 현재 매물이 매우 적음" },
@@ -182,7 +177,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "보통",
       notes: ["안감 하단 사용감", "단추 전부 보유", "겉감 보풀 거의 없음"],
     },
-    market: market(180000, 320000, 4, UP),
+    market: market(27000, 42000, 4, UP),
     story: story(
       "ARCHIVE STORY",
       "덜어낼수록 선명해지는 코트",
@@ -207,12 +202,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "uu-16-blouson",
-    name: "UNIQLO U Zip Blouson",
-    nameKo: "유니클로 U 집업 블루종",
+    name: "Old UNIQLO Coverall",
+    cardLabel: "OUTERWEAR",
+    nameKo: "올드 유니클로 커버올",
     category: "outer",
-    collection: "UNIQLO U",
+    collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 2016, term: "F/W", estimated: true },
+    season: { year: 1994, term: "S/S", estimated: false, label: "1994 S/S(시연용 가정)" },
     material: "코튼 65% · 나일론 35%",
     fit: "박시",
     color: { name: "올리브" },
@@ -228,11 +224,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "기본 아이템을 새롭게 정의하려던 라인의 초기 시즌 블루종. 짧은 기장과 넉넉한 품의 비율이 지금 봐도 현대적입니다.",
-    archiveType: {
-      label: "디자인 레퍼런스형",
-      en: "Design Reference",
-      desc: "이후 시즌 디자인의 기준이 된, 실루엣과 비율이 돋보이는 제품",
-    },
+    archiveType: VINTAGE_TYPE.mint,
     evaluation: {
       era: { score: 3, reason: "라인 출범 초기 시즌 제품" },
       scarcity: { score: 3, reason: "매물은 꾸준하나 초기 컬러는 드묾" },
@@ -251,7 +243,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "양호",
       notes: ["밑단 리브 탄력 양호", "소매 안쪽 미세 오염", "지퍼 정상"],
     },
-    market: market(38000, 59000, 21, FLAT),
+    market: market(34000, 51000, 21, FLAT),
     story: story(
       "ARCHIVE STORY",
       "기본을 다시 그리다",
@@ -275,12 +267,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "ut-19-artist",
-    name: "UT Artist Graphic Tee",
-    nameKo: "UT 아티스트 그래픽 티셔츠",
+    name: "Old UNIQLO Micro Stripe Tee",
+    cardLabel: "TOPS",
+    nameKo: "마이크로 스트라이프 티셔츠",
     category: "tee",
-    collection: "UT",
-    collab: { partner: "Artist Collaboration", note: "아티스트 협업 UT" },
-    season: { year: 2019, term: "S/S", estimated: true },
+    collection: "UNIQLO Archive",
+    collab: null,
+    season: { year: 2005, term: "S/S", estimated: false, label: "2005 S/S" },
     material: "코튼 100%",
     fit: "레귤러",
     color: { name: "오프화이트" },
@@ -297,11 +290,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "발매 당시 큰 화제를 모았던 아티스트 협업 그래픽 티셔츠. 수요는 높지만 유통 물량도 많아 희귀도는 중간 수준으로 평가됩니다.",
-    archiveType: {
-      label: "컬처 아이콘형",
-      en: "Culture Icon",
-      desc: "발매 당시의 화제성과 문화적 맥락으로 기억되는 제품",
-    },
+    archiveType: VINTAGE_TYPE.trend,
     evaluation: {
       era: { score: 3, reason: "협업 UT 열풍을 상징하는 시즌" },
       scarcity: { score: 2, reason: "유통 물량이 많아 매물 풍부" },
@@ -320,7 +309,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "양호",
       notes: ["프린트 갈라짐 없음", "목 늘어남 거의 없음", "미세한 황변"],
     },
-    market: market(25000, 48000, 38, DOWN),
+    market: market(25000, 38000, 38, DOWN),
     story: story(
       "ARCHIVE STORY",
       "티셔츠가 캔버스가 될 때",
@@ -345,12 +334,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "denim-01-trucker",
-    name: "Vintage Denim Trucker Jacket",
-    nameKo: "빈티지 데님 트러커 재킷",
+    name: "Old UNIQLO Denim Trucker Jacket",
+    cardLabel: "DENIM",
+    nameKo: "올드 유니클로 데님 트러커 재킷",
     category: "outer",
     collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 2001, term: "S/S", estimated: true },
+    season: { year: 2002, term: "S/S", estimated: false, label: "2002 S/S" },
     material: "코튼 100%",
     fit: "레귤러",
     color: { name: "미드 인디고" },
@@ -365,11 +355,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "2000년대 초반 제품으로 추정되는 데님 트러커 재킷. 오랜 착용으로 생긴 자연스러운 페이딩이 매력입니다.",
-    archiveType: {
-      label: "타임리스 베이직형",
-      en: "Timeless Basic",
-      desc: "유행과 무관하게 오래 입을 수 있는, 기본에 충실한 제품",
-    },
+    archiveType: VINTAGE_TYPE.era,
     evaluation: {
       era: { score: 4, reason: "2000년대 초 데님 라인의 전형" },
       scarcity: { score: 4, reason: "같은 워싱의 현존 개체가 적음" },
@@ -388,7 +374,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "양호",
       notes: ["팔꿈치 자연 페이딩", "단추 전부 보유", "밑단 마모 경미"],
     },
-    market: market(32000, 52000, 14, FLAT),
+    market: market(17000, 27000, 14, FLAT),
     story: story(
       "ARCHIVE STORY",
       "시간이 완성한 인디고",
@@ -412,12 +398,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "m65-04-field",
-    name: "Military Field Jacket",
-    nameKo: "밀리터리 필드 재킷",
+    name: "Old UNIQLO Mountain Parka",
+    cardLabel: "OUTERWEAR",
+    nameKo: "올드 유니클로 마운틴 파카",
     category: "outer",
     collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 2004, term: "F/W", estimated: true },
+    season: { year: 1999, term: "F/W", estimated: false, label: "1999 F/W" },
     material: "코튼 100%",
     fit: "레귤러",
     color: { name: "카키" },
@@ -432,11 +419,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "군용 필드 재킷의 구조를 일상복으로 옮긴 2000년대 중반 모델. 네 개의 플랩 포켓과 탄탄한 코튼 원단이 특징입니다.",
-    archiveType: {
-      label: "유틸리티 헤리티지형",
-      en: "Utility Heritage",
-      desc: "워크웨어·밀리터리의 기능적 디자인을 계승한 제품",
-    },
+    archiveType: VINTAGE_TYPE.heritage,
     evaluation: {
       era: { score: 4, reason: "밀리터리 캐주얼이 유행하던 시기" },
       scarcity: { score: 4, reason: "매물이 적고 사이즈가 한정적" },
@@ -455,7 +438,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "보통",
       notes: ["소매 끝 마모", "스냅 1개 헐거움", "전체 색 빠짐 균일"],
     },
-    market: market(48000, 79000, 11, UP),
+    market: market(26000, 40000, 11, UP),
     story: story(
       "ARCHIVE STORY",
       "기능이 곧 디자인",
@@ -480,12 +463,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "lambswool-03-crew",
-    name: "Lambswool Crew Neck Sweater",
-    nameKo: "램스울 크루넥 스웨터",
-    category: "knit",
+    name: "Old Uniqlo Corduroy Pocket Shirt",
+    cardLabel: "SHIRT",
+    nameKo: "올드 유니클로 코듀로이 포켓 셔츠",
+    category: "shirt",
     collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 2003, term: "F/W", estimated: true },
+    season: { year: 2021, term: "F/W", estimated: false, label: "2021 F/W" },
     material: "울 100%",
     fit: "레귤러",
     color: { name: "오트밀" },
@@ -500,11 +484,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "매 시즌 조금씩 다듬어져 온 기본 니트의 2000년대 초반 버전. 흔한 품목이지만 오래 입을 수 있는 옷의 좋은 예입니다.",
-    archiveType: {
-      label: "타임리스 베이직형",
-      en: "Timeless Basic",
-      desc: "유행과 무관하게 오래 입을 수 있는, 기본에 충실한 제품",
-    },
+    archiveType: VINTAGE_TYPE.mint,
     evaluation: {
       era: { score: 3, reason: "기본 니트 라인의 초기 버전" },
       scarcity: { score: 2, reason: "유사 제품이 계속 판매 중" },
@@ -523,7 +503,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "보통",
       notes: ["팔꿈치 보풀", "밑단 리브 약간 늘어남", "구멍 없음"],
     },
-    market: market(12000, 22000, 40, FLAT),
+    market: market(27000, 42000, 40, FLAT),
     story: story(
       "ARCHIVE STORY",
       "매년 입는 스웨터",
@@ -547,12 +527,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "oxford-07-shirt",
-    name: "Oxford Button-Down Shirt",
-    nameKo: "옥스퍼드 버튼다운 셔츠",
+    name: "Old Uniqlo Corduroy Shirt",
+    cardLabel: "SHIRT",
+    nameKo: "올드 유니클로 코듀로이 셔츠",
     category: "shirt",
     collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 2007, term: "S/S", estimated: true },
+    season: { year: 1980, term: "F/W", estimated: false, label: "1980s" },
     material: "코튼 100%",
     fit: "레귤러",
     color: { name: "색스 블루" },
@@ -567,11 +548,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "가장 기본적인 옥스퍼드 셔츠의 2000년대 후반 버전. 세탁을 거듭할수록 부드러워지는 원단이 오래 입는 즐거움을 줍니다.",
-    archiveType: {
-      label: "타임리스 베이직형",
-      en: "Timeless Basic",
-      desc: "유행과 무관하게 오래 입을 수 있는, 기본에 충실한 제품",
-    },
+    archiveType: VINTAGE_TYPE.era,
     evaluation: {
       era: { score: 2, reason: "시기를 특정하기 어려운 기본 품목" },
       scarcity: { score: 1, reason: "유사 제품과 매물이 매우 많음" },
@@ -590,7 +567,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "양호",
       notes: ["칼라 해짐 없음", "단추 전부 보유", "미세한 세탁 주름"],
     },
-    market: market(9000, 19000, 52, FLAT),
+    market: market(26000, 39000, 52, FLAT),
     story: story(
       "ARCHIVE STORY",
       "세탁할수록 좋아지는 셔츠",
@@ -614,23 +591,20 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "selvedge-10-jeans",
-    name: "Selvedge Straight Jeans",
-    nameKo: "셀비지 스트레이트 진",
+    name: "90s UCW Original Denim Pants",
+    cardLabel: "DENIM",
+    nameKo: "90년대 UCW 오리지널 데님 팬츠",
     category: "pants",
     collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 2010, term: "F/W", estimated: true },
+    season: { year: 1980, term: "S/S", estimated: false, label: "1980s" },
     material: "코튼 100%",
     fit: "스트레이트",
     color: { name: "딥 인디고" },
     garment: { kind: "pants", color: "#232F4B", fabric: "denim" },
     description:
       "셀비지 원단을 사용한 스트레이트 진. 밑단을 접으면 드러나는 붉은 셀비지 라인이 포인트입니다.",
-    archiveType: {
-      label: "소재 헤리티지형",
-      en: "Fabric Heritage",
-      desc: "원단과 제작 방식 자체에 가치가 있는 제품",
-    },
+    archiveType: VINTAGE_TYPE.era,
     evaluation: {
       era: { score: 3, reason: "셀비지 데님 대중화 시기의 제품" },
       scarcity: { score: 3, reason: "이후 유사 라인이 다시 출시됨" },
@@ -649,7 +623,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "양호",
       notes: ["허벅지 자연 워싱", "밑단 수선 이력 없음", "포켓 마모 경미"],
     },
-    market: market(28000, 45000, 19, FLAT),
+    market: market(58000, 88000, 19, FLAT),
     story: story(
       "ARCHIVE STORY",
       "접어야 보이는 디테일",
@@ -673,12 +647,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "fleece-00-halfzip",
-    name: "'00 Fleece Half-Zip Pullover",
-    nameKo: "플리스 하프집 풀오버",
+    name: "Old Uniqlo Fleece Pullover",
+    cardLabel: "FLEECE",
+    nameKo: "유니클로 플리스 풀오버",
     category: "fleece",
     collection: "UNIQLO Archive",
     collab: null,
-    season: { year: 2000, term: "F/W", estimated: true },
+    season: { year: 2000, term: "F/W", estimated: false, label: "2000s" },
     material: "폴리에스터 100%",
     fit: "릴랙스",
     color: { name: "레드", others: "외 5종" },
@@ -693,11 +668,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "플리스 붐이 절정에 이르던 시기의 하프집 풀오버. 선명한 원색 컬러가 당시의 분위기를 그대로 전합니다.",
-    archiveType: {
-      label: "시대 아카이브형",
-      en: "Era Archive",
-      desc: "특정 시기의 브랜드 전략과 디자인을 잘 보여 주는, 시대적 의미가 큰 제품",
-    },
+    archiveType: VINTAGE_TYPE.era,
     evaluation: {
       era: { score: 5, reason: "플리스 붐 절정기의 대표 품목" },
       scarcity: { score: 3, reason: "판매량이 많았고 매물도 꾸준함" },
@@ -716,7 +687,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "보통",
       notes: ["기모 눌림", "색 빠짐 거의 없음", "지퍼 정상"],
     },
-    market: market(22000, 39000, 18, UP),
+    market: market(11000, 18000, 18, UP),
     story: story(
       "ARCHIVE STORY",
       "모두가 플리스를 입던 겨울",
@@ -740,12 +711,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "designer-17-stripe-knit",
-    name: "Designer Collab Striped Knit",
-    nameKo: "디자이너 협업 스트라이프 니트",
-    category: "knit",
-    collection: "Designer Collaboration",
-    collab: { partner: "Designer Collaboration", note: "디자이너 협업 컬렉션" },
-    season: { year: 2017, term: "F/W", estimated: true },
+    name: "90s Old Uniqlo Denim Coverall",
+    cardLabel: "DENIM",
+    nameKo: "90년대 올드 유니클로 데님 커버올",
+    category: "outer",
+    collection: "UNIQLO Archive",
+    collab: null,
+    season: { year: 1990, term: "S/S", estimated: false, label: "1990s" },
     material: "울 100%",
     fit: "레귤러",
     color: { name: "네이비 · 크림" },
@@ -762,11 +734,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "영국풍 클래식을 유쾌하게 비튼 협업 컬렉션의 스트라이프 니트. 굵은 보더 패턴이 한눈에 들어옵니다.",
-    archiveType: {
-      label: "협업 컬렉터블형",
-      en: "Collab Collectible",
-      desc: "한정 판매된 협업 제품으로, 수집 가치가 높게 평가되는 제품",
-    },
+    archiveType: VINTAGE_TYPE.icon,
     evaluation: {
       era: { score: 3, reason: "협업 컬렉션 첫 시즌 제품" },
       scarcity: { score: 4, reason: "한정 물량, 인기 컬러는 드묾" },
@@ -785,7 +753,7 @@ export const PRODUCTS: ProductBase[] = [
       label: "양호",
       notes: ["보풀 적음", "목 리브 탄력 양호", "구멍 없음"],
     },
-    market: market(42000, 72000, 16, UP),
+    market: market(47000, 72000, 16, UP),
     story: story(
       "ARCHIVE STORY",
       "클래식을 유쾌하게",
@@ -809,12 +777,13 @@ export const PRODUCTS: ProductBase[] = [
   },
   {
     id: "ut-03-graphic",
-    name: "Early UT Graphic Tee",
-    nameKo: "초기 UT 그래픽 티셔츠",
+    name: "MFA Boston Ukiyo-e Graphic Tee",
+    cardLabel: "UT",
+    nameKo: "호쿠사이 그래픽 티셔츠",
     category: "tee",
     collection: "UT",
     collab: null,
-    season: { year: 2003, term: "S/S", estimated: true },
+    season: { year: 2025, term: "S/S", estimated: false, label: "2025 S/S" },
     material: "코튼 100%",
     fit: "레귤러",
     color: { name: "블랙" },
@@ -831,11 +800,7 @@ export const PRODUCTS: ProductBase[] = [
     },
     description:
       "그래픽 티셔츠 프로젝트 초기의 것으로 추정되는 제품. 현재 확인되는 중고 매물이 없어 가격 정보를 제공하지 않습니다.",
-    archiveType: {
-      label: "희소 발굴형",
-      en: "Rare Find",
-      desc: "현존 개체와 기록이 적어, 발견 자체가 의미 있는 제품",
-    },
+    archiveType: VINTAGE_TYPE.mint,
     evaluation: {
       era: { score: 5, reason: "그래픽 티셔츠 프로젝트 초기 제품" },
       scarcity: { score: 5, reason: "확인되는 매물이 없음" },
@@ -876,5 +841,69 @@ export const PRODUCTS: ProductBase[] = [
     provenance: DEMO_PROVENANCE,
     registeredAt: "2026-11-10",
     foundThisWeek: true,
+  },
+  {
+    id: "duffle-23-coat",
+    name: "Old Uniqlo Duffle Coat",
+    cardLabel: "DUFFLE COAT",
+    nameKo: "올드 유니클로 떡볶이 더플코트",
+    category: "outer",
+    collection: "UNIQLO Archive",
+    collab: null,
+    season: { year: 2023, term: "F/W", estimated: false, label: "2023s" },
+    material: "울 혼방",
+    fit: "레귤러",
+    color: { name: "블랙" },
+    garment: {
+      kind: "top",
+      color: "#1E1F24",
+      fabric: "wool",
+      length: "long",
+      collar: "lapel",
+      front: "buttons",
+      pockets: "flap2",
+    },
+    description:
+      "토글 단추와 후드를 갖춘 클래식 더플코트. 무릎까지 오는 기장과 두툼한 울 원단으로 겨울 아우터의 기본을 보여 주는 제품입니다.",
+    archiveType: VINTAGE_TYPE.icon,
+    evaluation: {
+      era: { score: 2, reason: "비교적 최근 시즌 제품" },
+      scarcity: { score: 3, reason: "토글 더플코트의 전형적인 구성" },
+      design: { score: 4, reason: "떡볶이 단추와 후드의 대표적인 실루엣" },
+      demand: { score: 4, reason: "겨울철 꾸준히 찾는 품목" },
+      condition: { score: 4, reason: "보풀 적고 토글 상태 양호" },
+    },
+    scarcity: {
+      productionScale: "standard",
+      productionNote: "시즌 정규 상품으로 추정",
+      discontinued: true,
+      reissued: true,
+      activeListings: 12,
+    },
+    condition: {
+      label: "양호",
+      notes: ["토글 · 끈 상태 양호", "소매 끝 가벼운 마모", "안감 얼룩 없음"],
+    },
+    market: market(31000, 47000, 12, FLAT),
+    story: story(
+      "ARCHIVE STORY",
+      "겨울의 기본, 더플코트",
+      [
+        "토글 단추와 후드, 무릎 기장. 더플코트는 오래전 작업복에서 시작해 겨울 교복 같은 옷이 되었습니다.",
+        "이 코트는 장식을 덜어 내고 원단과 실루엣에 집중한 정규 라인의 구성입니다.",
+        "나무 토글과 가죽 · 끈 고리, 패치 포켓은 더플코트를 알아보게 하는 기본 요소입니다.",
+        "토글과 끈의 상태, 어깨선의 형태가 보관 상태와 사용 기간을 가늠하는 단서가 됩니다.",
+        "니트와 데님 위에 넉넉하게 걸치면 충분합니다. 단추를 모두 채우기보다 가볍게 열어 입어 보세요.",
+      ],
+      [
+        "작업복에서 겨울 교복으로",
+        "원단과 실루엣에 집중",
+        "토글과 패치 포켓",
+        "토글과 어깨선을 보세요",
+        "넉넉하게, 가볍게",
+      ],
+    ),
+    provenance: DEMO_PROVENANCE,
+    registeredAt: "2026-11-11",
   },
 ];

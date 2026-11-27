@@ -10,7 +10,9 @@ export const NAV_ITEMS = [
 export function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   if (href === "/explore") {
-    return pathname.startsWith("/explore") || pathname.startsWith("/archive");
+    return ["/explore", "/archive", "/market", "/checkout"].some((p) => pathname.startsWith(p));
   }
+  // 판매 정보 작성 · 등록 완료(Figma 10 · 11)는 나의 옷장 메뉴에 속한다
+  if (href === "/my") return pathname.startsWith("/my") || pathname.startsWith("/sell");
   return pathname.startsWith(href);
 }

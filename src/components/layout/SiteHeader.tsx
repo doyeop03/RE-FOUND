@@ -21,7 +21,7 @@ const NOTIFICATIONS = [
   {
     icon: Sparkles,
     title: "이번 주 새로 발견된 아카이브 5건",
-    body: "초기 UT 그래픽 티셔츠가 처음으로 아카이브에 등록되었어요.",
+    body: "올드 유니클로 떡볶이 더플코트가 새로 아카이브에 등록되었어요.",
     time: "2시간 전",
     href: "/explore",
     unread: true,
@@ -29,9 +29,9 @@ const NOTIFICATIONS = [
   {
     icon: ScanLine,
     title: "찜한 제품의 매물이 새로 올라왔어요",
-    body: "+J Wool Chesterfield Coat · 현재 매물 4건",
+    body: "Old Uniqlo Italian Cotton Jacket · 현재 매물 4건",
     time: "어제",
-    href: "/archive/plusj-09-coat",
+    href: "/market/plusj-09-coat",
     unread: false,
   },
 ];

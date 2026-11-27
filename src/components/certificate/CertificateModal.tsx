@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { RotateCw, X } from "lucide-react";
+import { X } from "lucide-react";
 import { cx } from "@/lib/format";
 import type { CertificateData } from "@/types";
 import { FlipCertificate } from "./FlipCertificate";
@@ -93,7 +93,7 @@ function CertificateDialog({ certificate, onClose }: { certificate: CertificateD
       {/* 배경 — 누르면 닫힘 */}
       <motion.div
         aria-hidden
-        className="absolute inset-0 bg-[#0a0a0a]/85 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/80"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -103,26 +103,22 @@ function CertificateDialog({ certificate, onClose }: { certificate: CertificateD
 
       {/* 상단 바 */}
       <motion.div
-        className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[calc(8px+env(safe-area-inset-top))]"
+        className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[calc(8px+env(safe-area-inset-top))] md:px-10 md:pt-5"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-white/60">
+        <p className="text-[14px] font-semibold text-white/85 md:text-[17px]">
           RE:FOUND CERTIFICATE
-          {certificate.isDemo && (
-            <span className="border border-white/40 px-1.5 py-px text-[10px] tracking-[0.12em] text-white/80">
-              DEMO
-            </span>
-          )}
+          {certificate.isDemo && <span className="ml-2">/&nbsp; DEMO</span>}
         </p>
         <button
           type="button"
           onClick={onClose}
           aria-label="인증서 닫기"
-          className="-mr-2 flex size-11 items-center justify-center text-white/90 hover:text-white"
+          className="-mr-2 flex size-11 items-center justify-center text-white hover:text-white/80"
         >
-          <X size={24} />
+          <X size={28} strokeWidth={1.8} />
         </button>
       </motion.div>
 
@@ -137,7 +133,7 @@ function CertificateDialog({ certificate, onClose }: { certificate: CertificateD
         <div
           className="pointer-events-auto"
           // 2:3 카드가 화면 높이 안에 반드시 들어오도록 폭을 높이에서 역산한다
-          style={{ width: "min(86vw, 400px, calc((100dvh - 168px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 2 / 3))" }}
+          style={{ width: "min(86vw, 540px, calc((100dvh - 168px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 2 / 3))" }}
         >
           <FlipCertificate
             certificate={certificate}
@@ -151,13 +147,12 @@ function CertificateDialog({ certificate, onClose }: { certificate: CertificateD
         <button
           type="button"
           onClick={() => setIsFlipped((v) => !v)}
-          className="pointer-events-auto mt-5 flex h-11 items-center gap-2.5 px-3 text-[13px] font-medium text-white/75 hover:text-white"
+          className="pointer-events-auto mt-4 flex h-11 items-center gap-4 px-3 text-[15px] text-white/85 hover:text-white md:text-[18px]"
         >
-          <RotateCw size={15} />
           카드를 터치하여 뒤집어 보세요
-          <span className="ml-1 flex items-center gap-1" aria-hidden>
-            <span className={cx("h-1.5 w-1.5 rounded-full", isFlipped ? "bg-white/30" : "bg-white")} />
-            <span className={cx("h-1.5 w-1.5 rounded-full", isFlipped ? "bg-brand" : "bg-white/30")} />
+          <span className="flex items-center gap-2" aria-hidden>
+            <span className={cx("size-3.5 rounded-full", isFlipped ? "border border-white/80" : "bg-[#d9d9d9]")} />
+            <span className={cx("size-3.5 rounded-full", isFlipped ? "bg-[#d9d9d9]" : "border border-white/80")} />
           </span>
         </button>
       </motion.div>

@@ -6,11 +6,11 @@ import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/primitives";
+import { VINTAGE_TYPE, VINTAGE_TYPE_ORDER, VINTAGE_TYPE_RULES } from "@/data/vintage-types";
 import { CATEGORY_LABEL, cx } from "@/lib/format";
-import { RARITY_LABEL } from "@/lib/rarity";
-import { RecordCard } from "@/components/archive/record/RecordDetail";
-import type { Category, Product, RarityGrade } from "@/types";
-import type { ArchiveRecord } from "@/types/archive-record";
+import { findListing } from "@/lib/listing";
+import { useAppState } from "@/store/app-store";
+import type { Category, Product } from "@/types";
 
 type CategoryFilter = Category | "all";
 type Decade = "all" | "1990" | "2000" | "2010";
@@ -23,7 +23,6 @@ const DECADES: { value: Decade; label: string }[] = [
   { value: "2000", label: "2000년대" },
   { value: "2010", label: "2010년대" },
 ];
-const GRADES: RarityGrade[] = ["S", "A", "B", "C"];
 const SORTS: { value: Sort; label: string }[] = [
   { value: "recent", label: "최신 등록순" },
   { value: "rarity", label: "희귀도순" },
@@ -35,12 +34,13 @@ function Chip({
   active,
   onClick,
   children,
-  accent,
+  block,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
-  accent?: boolean;
+  /** 빈티지 유형 필터처럼 한 줄 전체를 차지하는 버튼 */
+  block?: boolean;
 }) {
   return (
     <button
@@ -49,11 +49,8 @@ function Chip({
       onClick={onClick}
       className={cx(
         "h-10 shrink-0 border px-3.5 text-[13px] font-semibold transition-colors",
-        active
-          ? accent
-            ? "border-brand bg-brand text-white"
-            : "border-ink bg-ink text-white"
-          : "border-line bg-white text-ink hover:border-ink",
+        block && "w-full",
+        active ? "border-ink bg-ink text-white" : "border-line bg-white text-ink hover:border-ink",
       )}
     >
       {children}
@@ -62,19 +59,17 @@ function Chip({
 }
 
 /** URL 쿼리가 바뀌면 key 로 다시 마운트해 초기 필터를 적용한다 */
-export function ExploreView({ products, records = [] }: { products: Product[]; records?: ArchiveRecord[] }) {
+export function ExploreView({ products }: { products: Product[] }) {
   const search = useQueryString();
-  return <ExploreInner key={search} search={search} products={products} records={records} />;
+  return <ExploreInner key={search} search={search} products={products} />;
 }
 
-function ExploreInner({ products, search, records }: { products: Product[]; search: string; records: ArchiveRecord[] }) {
+function ExploreInner({ products, search }: { products: Product[]; search: string }) {
   const params = new URLSearchParams(search);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { closet } = useAppState();
 
   const initialCategory = params.get("category");
-  const initialRarity = (params.get("rarity") ?? "")
-    .split(",")
-    .filter((g): g is RarityGrade => GRADES.includes(g as RarityGrade));
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>(
@@ -82,8 +77,8 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
   );
   const [collabOnly, setCollabOnly] = useState(params.get("collab") === "1");
   const [decade, setDecade] = useState<Decade>("all");
-  const [grades, setGrades] = useState<RarityGrade[]>(initialRarity);
-  const [sort, setSort] = useState<Sort>(initialRarity.length ? "rarity" : "recent");
+  const [types, setTypes] = useState<string[]>([]);
+  const [sort, setSort] = useState<Sort>("recent");
   const [sheet, setSheet] = useState(false);
 
   const shouldFocus = params.get("focus") === "1";
@@ -100,7 +95,7 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
         const start = Number(decade);
         if (p.season.year < start || p.season.year >= start + 10) return false;
       }
-      if (grades.length && !grades.includes(p.rarity.grade)) return false;
+      if (types.length && !types.includes(p.archiveType.label)) return false;
       if (q) {
         const haystack = [
           p.name,
@@ -120,7 +115,10 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
     });
 
     const priceOf = (p: Product) => (p.market ? p.market.low : null);
+    // 품절된 판매 상품은 항상 뒤로 보낸다 (Figma 08)
+    const soldOut = (p: Product) => (findListing(p, closet)?.status === "sold_out" ? 1 : 0);
     return filtered.sort((a, b) => {
+      if (soldOut(a) !== soldOut(b)) return soldOut(a) - soldOut(b);
       if (sort === "recent") return b.registeredAt.localeCompare(a.registeredAt);
       if (sort === "rarity") return b.rarity.score - a.rarity.score;
       const pa = priceOf(a);
@@ -131,9 +129,9 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
       if (pb === null) return -1;
       return sort === "priceHigh" ? pb - pa : pa - pb;
     });
-  }, [products, query, category, collabOnly, decade, grades, sort]);
+  }, [products, query, category, collabOnly, decade, types, sort, closet]);
 
-  const detailCount = (decade !== "all" ? 1 : 0) + grades.length;
+  const detailCount = (decade !== "all" ? 1 : 0) + types.length;
   const anyFilter = detailCount > 0 || category !== "all" || collabOnly || query.trim() !== "";
 
   const reset = () => {
@@ -141,11 +139,10 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
     setCategory("all");
     setCollabOnly(false);
     setDecade("all");
-    setGrades([]);
+    setTypes([]);
   };
 
-  const toggleGrade = (g: RarityGrade) =>
-    setGrades((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
+  const toggleType = (t: string) => setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
   const detailFilters = (
     <div className="space-y-7">
@@ -160,12 +157,23 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
         </div>
       </fieldset>
       <fieldset>
-        <legend className="mb-3 text-[13px] font-bold">희귀도 등급</legend>
-        <div className="flex flex-wrap gap-2">
-          {GRADES.map((g) => (
-            <Chip key={g} active={grades.includes(g)} onClick={() => toggleGrade(g)} accent>
-              {g} · {RARITY_LABEL[g]}
+        <legend className="mb-3 text-[13px] font-bold">빈티지 유형</legend>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+          {VINTAGE_TYPE_ORDER.map((k) => (
+            <Chip key={k} block active={types.includes(VINTAGE_TYPE[k].label)} onClick={() => toggleType(VINTAGE_TYPE[k].label)}>
+              {VINTAGE_TYPE[k].label}
             </Chip>
+          ))}
+        </div>
+        <div className="mt-2 space-y-3 text-[12px] leading-[1.55] text-sub">
+          {VINTAGE_TYPE_RULES.map((group) => (
+            <ul key={group.join()}>
+              {group.map((k) => (
+                <li key={k}>
+                  {VINTAGE_TYPE[k].rule} → {VINTAGE_TYPE[k].label}
+                </li>
+              ))}
+            </ul>
           ))}
         </div>
       </fieldset>
@@ -176,7 +184,7 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
             type="checkbox"
             checked={collabOnly}
             onChange={(e) => setCollabOnly(e.target.checked)}
-            className="h-5 w-5 accent-[#E60012]"
+            className="h-5 w-5 accent-[#111111]"
           />
           협업 컬렉션만 보기
         </label>
@@ -189,21 +197,6 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
       <p className="eyebrow text-brand">Explore</p>
       <h1 className="display mt-2 text-[40px] md:text-[64px]">ARCHIVE</h1>
       <p className="mt-2 text-[14px] text-sub">지금까지 발견된 빈티지 유니클로를 탐색해 보세요.</p>
-
-      {records.length > 0 && (
-        <section aria-labelledby="sourced-title" className="mt-6 border-t-2 border-ink pt-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 id="sourced-title" className="eyebrow text-brand">Sourced Archive · 출처 확인 자료</h2>
-            <span className="text-[11px] text-faint">원문 확인 {records.length}건</span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-5">
-            {records.map((r) => (
-              <RecordCard key={r.id} record={r} />
-            ))}
-          </div>
-          <p className="mt-4 text-[11px] leading-relaxed text-faint">아래 목록은 프로토타입 데모 데이터입니다. 출처 확인 자료와 섞지 않습니다.</p>
-        </section>
-      )}
 
       {/* 검색 */}
       <div className="relative mt-5">
@@ -239,12 +232,12 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
             {CATEGORY_LABEL[c]}
           </Chip>
         ))}
-        <Chip active={collabOnly} onClick={() => setCollabOnly(!collabOnly)} accent>
+        <Chip active={collabOnly} onClick={() => setCollabOnly(!collabOnly)}>
           협업 컬렉션
         </Chip>
       </div>
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-[220px_1fr]">
+      <div className="mt-6 grid gap-10 lg:grid-cols-[206px_1fr] lg:gap-[38px]">
         {/* 데스크톱 필터 */}
         <aside className="hidden lg:block">
           <div className="sticky top-24 border-t-2 border-ink pt-5">
@@ -261,7 +254,7 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
         </aside>
 
         <div className="min-w-0">
-          <div className="flex items-center justify-between border-y border-line py-1">
+          <div className="flex items-center justify-between border-y border-line py-1.5">
             <p className="text-[13px] text-sub">
               <b className="font-extrabold text-ink">{results.length}</b>개의 아카이브
             </p>
@@ -294,9 +287,9 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
           </div>
 
           {results.length > 0 ? (
-            <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-3 md:gap-x-5 xl:grid-cols-4">
+            <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-3 md:gap-x-6 md:gap-y-9 xl:grid-cols-4">
               {results.map((p) => (
-                <ProductCard key={p.id} product={p} />
+                <ProductCard key={p.id} product={p} badge="type" plain photo listing={findListing(p, closet)} />
               ))}
             </div>
           ) : (
@@ -310,16 +303,13 @@ function ExploreInner({ products, search, records }: { products: Product[]; sear
             </div>
           )}
 
-          <p className="mt-10 text-[12px] leading-relaxed text-faint">
-            표시된 가격은 중고 매물 호가 범위이며 실거래가가 아닙니다. 모든 제품 정보는 데모 데이터입니다.
-          </p>
         </div>
       </div>
 
       <Modal open={sheet} onClose={() => setSheet(false)} title="상세 필터" eyebrow="Filter">
         {detailFilters}
         <div className="mt-8 grid grid-cols-[auto_1fr] gap-2">
-          <Button variant="outline" onClick={() => { setDecade("all"); setGrades([]); setCollabOnly(false); }}>
+          <Button variant="outline" onClick={() => { setDecade("all"); setTypes([]); setCollabOnly(false); }}>
             초기화
           </Button>
           <Button variant="dark" onClick={() => setSheet(false)}>

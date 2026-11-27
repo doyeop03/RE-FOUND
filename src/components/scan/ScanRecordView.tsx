@@ -10,6 +10,7 @@ import { useQueryString } from "@/lib/use-query";
 import { deleteSession, getBlob, getSession } from "@/lib/scan/session-store";
 import type { ScanSession } from "@/lib/scan/session";
 import type { ArchiveRecord } from "@/types/archive-record";
+import { ScanProgress } from "./ScanSidebar";
 
 type State =
   | { kind: "loading" }
@@ -107,6 +108,7 @@ function Inner({ id }: { id: string | null }) {
             <Trash2 size={13} /> 기기에서 삭제
           </button>
         </div>
+        <ScanProgress active={2} variant="result" className="mt-5" />
       </div>
       <RecordDetail record={record} />
     </>
